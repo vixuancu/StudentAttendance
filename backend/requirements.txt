@@ -1,0 +1,20 @@
+#FastAPI
+fastapi>=0.109.0
+uvicorn[standard]>=0.24.0
+
+#database
+sqlalchemy[asyncio]>=2.0.25 # ORM
+asyncpg>=0.29.0 # PostgreSQL async driver
+alembic>=1.13.1 # Database migrations
+
+#config
+pydantic>=2.5.0
+pydantic-settings>=2.1.0 # Environment config
+python-dotenv>=1.0.0 # Load .env file
+
+#security
+passlib[bcrypt]>=1.7.4 # Password hashing
+python-jose[cryptography]>=3.3.0 # JWT implementation
+
+#utils
+python-multipart>=0.0.6 # file upload
