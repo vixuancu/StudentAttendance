@@ -1,11 +1,11 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-from backend.src.config.settings import settings
+from src.config.settings import settings
 
 # create async engine
 engine = create_async_engine(
-    settings.db_url,
+    settings.database_url, # Database connection URL
     echo=settings.debug, # Log SQL statements if in debug mode
     future = True
 )

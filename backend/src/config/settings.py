@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     debug: bool = True
 
     #Database
-    db_url: str = "postgresql+asyncpg://postgres:123456@localhost:5432/student_attendance"
+    database_url: str = "postgresql+asyncpg://root:123456@localhost:5432/student_attendance"
 
     #Security
     secret_key: str = "your-secret-key" 
@@ -19,6 +19,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra="ignore"  # Bỏ qua các biến thừa trong .env
 
 @lru_cache()
 def get_settings() -> Settings:

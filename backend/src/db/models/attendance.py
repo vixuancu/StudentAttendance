@@ -1,21 +1,22 @@
 from datetime import datetime
-from tokenize import String
-from typing import Optional, Text, String
-from sqlalchemy import DECIMAL, BigInteger, DateTime, Enum, ForeignKey, func
-from backend.src.db.base import Base, IDMixin, TimestampMixin, IDMIxin
+from typing import Optional, TYPE_CHECKING
+from sqlalchemy import DECIMAL, BigInteger, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from backend.src.db.models.enums import AttendanceStatus, DetectedByType
 
-class AttendanceRecord(Base,IDMixin,TimestampMixin):
-    __tablename__="attendance_records"
+from src.db.base import Base, IDMixin, TimestampMixin
+from src.db.models.enums import AttendanceStatus, DetectedByType
 
-    session_id:Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("class_sessions.id", ondelete="CASCADE"),
-        nullable=False
-    )
-    student_id:Mapped[int] = mapped_column(
+if TYPE_CHECKING:
+    from src.db.models.course import ClassSession
+    from src.db.models.student import Student
+    from src.db.models.user import User
+
+
+class AttendanceRecord(Base, IDMixin, TimestampMixin):
+    __tablename__ = "attendance_records"
+
+    session_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("class_sessions.id", ondelete="CASCADE"),
         nullable=False
@@ -54,9 +55,10 @@ class AttendanceRecord(Base,IDMixin,TimestampMixin):
     student: Mapped["Student"] = relationship(back_populates="attendance_records")
     confirmed_by_user: Mapped[Optional["User"]] = relationship()
 
+
 class AttendanceEvent(Base, IDMixin):
     __tablename__ = "attendance_events"
-    
+
     session_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("class_sessions.id", ondelete="CASCADE"),
@@ -68,18 +70,13 @@ class AttendanceEvent(Base, IDMixin):
         nullable=True
     )
     confidence: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 4), nullable=True)
-    image_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True) # đường dẫn đến ảnh chụp
-    bounding_box: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)# tọa độ hộp giới hạn khuôn mặt trong ảnh
+    image_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    bounding_box: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now()
     )
-    
+
     # Relationships
     session: Mapped["ClassSession"] = relationship(back_populates="attendance_events")
     student: Mapped[Optional["Student"]] = relationship()
-
-# Imports
-from src.db.models.course import ClassSession
-from src.db.models.student import Student
-from src.db.models.user import User
