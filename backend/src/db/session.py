@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 # ===================== ENGINE + CONNECTION POOL ===================== #
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.debug,                    # Log SQL khi debug
+    # echo=settings.debug,                    # Log SQL khi debug
+    echo=False,                             # Tắt SQL echo (dùng logging thay thế)
     future=True,
     # ── Connection Pool ──
     pool_size=settings.db_pool_size,        # Số connection thường trực (default 10)

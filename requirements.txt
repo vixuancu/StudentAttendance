@@ -1,0 +1,2 @@
+# Root requirements — trỏ tới backend
+-r backend/requirements.txt

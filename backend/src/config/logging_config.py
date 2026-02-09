@@ -44,6 +44,5 @@ def setup_logging() -> None:
 
     # Giảm noise của thư viện bên thứ ba
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.engine").setLevel(
-        logging.INFO if settings.debug else logging.WARNING
-    )
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)

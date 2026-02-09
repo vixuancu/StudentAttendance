@@ -3,7 +3,9 @@ StudentService – Business logic thuần cho Student.
 KHÔNG import FastAPI/HTTP. Chỉ throw BusinessException.
 """
 
+import logging
 from typing import Any, List, Optional, Tuple
+
 
 from src.db.models.student import Student
 from src.dto.common import PaginationParams
@@ -14,6 +16,7 @@ from src.utils.exceptions import AlreadyExistsException, NotFoundException
 
 
 class StudentService(IStudentService):
+    logger = logging.getLogger(__name__)
     """
     Concrete implementation của IStudentService.
     Nhận IStudentRepository qua DI – không tự tạo repo.
@@ -56,6 +59,7 @@ class StudentService(IStudentService):
             limit=pagination.limit,
             filters=filters if filters else None,
         )
+        self.logger.info("test logging")
         return students, total
 
     # ------------------------------------------------------------------ #

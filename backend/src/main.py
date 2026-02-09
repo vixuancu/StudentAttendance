@@ -23,7 +23,9 @@ from src.routes.router import api_router
 from src.utils.exceptions import (
     AlreadyExistsException,
     BusinessException,
+    ForbiddenException,
     NotFoundException,
+    UnauthorizedException,
     ValidationException,
 )
 
@@ -65,6 +67,31 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # ===================== BUSINESS EXCEPTION HANDLERS ====================== #
 # Service throw BusinessException → convert thành HTTP response tại đây.
+
+
+@app.exception_handler(UnauthorizedException)
+async def unauthorized_handler(_request: Request, exc: UnauthorizedException):
+    return JSONResponse(
+        status_code=401,
+        content={
+            "success": False,
+            "message": exc.message,
+            "error_code": exc.error_code,
+        },
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+@app.exception_handler(ForbiddenException)
+async def forbidden_handler(_request: Request, exc: ForbiddenException):
+    return JSONResponse(
+        status_code=403,
+        content={
+            "success": False,
+            "message": exc.message,
+            "error_code": exc.error_code,
+        },
+    )
 
 
 @app.exception_handler(NotFoundException)

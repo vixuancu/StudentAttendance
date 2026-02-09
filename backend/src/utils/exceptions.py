@@ -40,3 +40,17 @@ class ValidationException(BusinessException):
     def __init__(self, message: str, field: str = None):
         super().__init__(message, error_code="VALIDATION_ERROR")
         self.field = field
+
+
+class UnauthorizedException(BusinessException):
+    """Chưa xác thực – 401"""
+
+    def __init__(self, message: str = "Chưa xác thực"):
+        super().__init__(message, error_code="UNAUTHORIZED")
+
+
+class ForbiddenException(BusinessException):
+    """Không có quyền truy cập – 403"""
+
+    def __init__(self, message: str = "Không có quyền truy cập"):
+        super().__init__(message, error_code="FORBIDDEN")
