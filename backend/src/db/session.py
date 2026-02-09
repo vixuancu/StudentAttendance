@@ -1,32 +1,47 @@
+"""
+Database engine & session factory với Connection Pool được cấu hình đầy đủ.
+"""
+
+import logging
 from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.config.settings import settings
 
-# create async engine
+logger = logging.getLogger(__name__)
+
+# ===================== ENGINE + CONNECTION POOL ===================== #
 engine = create_async_engine(
-    settings.database_url, # Database connection URL
-    echo=settings.debug, # Log SQL statements if in debug mode
-    future = True
+    settings.database_url,
+    echo=settings.debug,                    # Log SQL khi debug
+    future=True,
+    # ── Connection Pool ──
+    pool_size=settings.db_pool_size,        # Số connection thường trực (default 10)
+    max_overflow=settings.db_max_overflow,  # Connection tạo thêm khi pool đầy (default 20)
+    pool_recycle=settings.db_pool_recycle,  # Tái tạo connection sau N giây (tránh DB timeout)
+    pool_pre_ping=settings.db_pool_pre_ping,  # Ping kiểm tra connection còn sống trước khi dùng
+    pool_timeout=settings.db_pool_timeout,  # Timeout chờ lấy connection từ pool
 )
 
-# Create async session factory - là chức năng tạo các phiên làm việc với cơ sở dữ liệu
+# ===================== SESSION FACTORY ===================== #
 async_session_factory = async_sessionmaker(
-    engine, # tạo phiên làm việc với engine đã tạo
-    class_=AsyncSession, # sử dụng lớp AsyncSession để làm việc với các phiên không đồng bộ
-    expire_on_commit=False, # không làm hết hạn các đối tượng sau khi cam kết
-    autocommit=False, # không tự động thay đổi
-    autoflush=False # không tự động làm mới các thay đổi
+    engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False,# tránh lỗi "Object is already detached" sau commit
+    autocommit=False, # tắt autocommit để kiểm soát transaction thủ công
+    autoflush=False, # tắt autoflush để tránh ghi dữ liệu không mong muốn
 )
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency để lấy (inject) session database bất đồng bộ"""
+    """Dependency để inject database session – tự động commit/rollback."""
     async with async_session_factory() as session:
         try:
-            yield session 
-            await session.commit() 
+            yield session
+            await session.commit()
         except Exception:
-            await session.rollback() 
-            raise # ném lại ngoại lệ để xử lý ở nơi khác
+            await session.rollback()
+            raise
         finally:
             await session.close()
