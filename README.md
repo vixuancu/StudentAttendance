@@ -21,7 +21,7 @@
 | **Git**    | >= 2.x  |                                    |
 
 ---
-
+Typography
 ## Cài đặt nhanh (5 phút)
 
 ### 1. Clone project

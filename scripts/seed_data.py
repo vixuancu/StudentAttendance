@@ -8,13 +8,15 @@ import sys
 from pathlib import Path
 
 # Thêm backend/ vào sys.path để import src.*
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
+sys.path.insert(0, str(BACKEND_DIR))
 
 from sqlalchemy import text
 from src.db.session import async_session_factory, engine
 from src.db.models.student import Student
 from src.db.models.user import User, Lecturer
 from src.db.models.enums import StudentStatus, UserRole
+from src.utils.security import hash_password
 
 
 # ── Sample Data ──────────────────────────────────────────────
@@ -71,14 +73,14 @@ USERS = [
     {
         "username": "admin",
         "email": "admin@hou.edu.vn",
-        "password_hash": "$2b$12$LJ3UlMJhCO0t8N9VB0zEYe9.0y8E3p1Xl5Q0j5Kk5E5Q0j5Kk5E5",  # placeholder
+        "password_hash": hash_password("admin123"),  # password: admin123
         "role": UserRole.ADMIN,
         "is_active": True,
     },
     {
         "username": "gv_nguyen",
         "email": "gvnguyen@hou.edu.vn",
-        "password_hash": "$2b$12$LJ3UlMJhCO0t8N9VB0zEYe9.0y8E3p1Xl5Q0j5Kk5E5Q0j5Kk5E5",
+        "password_hash": hash_password("123456"),  # password: 123456
         "role": UserRole.GIANG_VIEN,
         "is_active": True,
     },

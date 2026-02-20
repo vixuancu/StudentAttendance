@@ -7,25 +7,26 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 # ===================== PASSWORD HASHING ===================== #
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
     """Hash password bằng bcrypt."""
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """So sánh plain password với hashed password."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+    )
 
 
 # ===================== JWT TOKEN ===================== #

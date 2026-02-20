@@ -42,7 +42,7 @@ migrate-current:  ## Xem migration hiện tại
 
 # ── Seed Data ────────────────────────────────────────────────
 seed:  ## Chạy seed data mẫu
-	cd backend && python -m scripts.seed_data
+	cd backend && python ../scripts/seed_data.py
 
 # ── Dependencies ─────────────────────────────────────────────
 install:  ## Cài đặt dependencies

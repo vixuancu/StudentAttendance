@@ -13,7 +13,7 @@ pydantic-settings>=2.1.0 # Environment config
 python-dotenv>=1.0.0 # Load .env file
 
 #security
-passlib[bcrypt]>=1.7.4 # Password hashing
+bcrypt>=4.0.0 # Password hashing
 python-jose[cryptography]>=3.3.0 # JWT implementation
 
 #utils
