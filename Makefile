@@ -33,7 +33,14 @@ clean:  ## Xóa __pycache__, .pyc
 
 # ── Help ─────────────────────────────────────────────────────
 help:  ## Hiện danh sách commands
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo Available commands:
+	@echo   make dev      - Chay backend dev server (hot reload)
+	@echo   make run      - Chay backend production mode
+	@echo   make seed     - Chay seed data mau
+	@echo   make install  - Cai dat dependencies
+	@echo   make setup    - Setup toan bo: install + seed
+	@echo   make clean    - Xoa __pycache__, .pyc
+	@echo   make help     - Hien danh sach commands
 
 .PHONY: dev run seed install setup clean help
 .DEFAULT_GOAL := help
