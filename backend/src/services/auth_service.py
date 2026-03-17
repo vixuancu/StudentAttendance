@@ -20,39 +20,27 @@ class AuthService(IAuthService):
         self.user_repo = user_repo
 
     async def login(self, request: LoginRequest) -> tuple[User, str]:
-        """
-        Xác thực user → tạo JWT token.
-
-        Flow:
-            1. Tìm user theo username
-            2. Kiểm tra password
-            3. Kiểm tra is_active
-            4. Tạo JWT access token
-
-        Raise:
-            UnauthorizedException: Sai credentials hoặc tài khoản bị khóa
-        """
         # 1. Tìm user
         user = await self.user_repo.get_by_username(request.username)
         if user is None:
             self.logger.warning("Login failed: user '%s' not found", request.username)
             raise UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng")
 
-        # 2. Kiểm tra password
-        if not verify_password(request.password, user.password_hash):
+        # 2. Kiểm tra password (field đổi từ password_hash → password)
+        if not verify_password(request.password, user.password):
             self.logger.warning("Login failed: wrong password for user '%s'", request.username)
             raise UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng")
 
-        # 3. Kiểm tra active
-        if not user.is_active:
-            self.logger.warning("Login failed: user '%s' is disabled", request.username)
+        # 3. Kiểm tra is_cancel (thay cho is_active)
+        if user.is_cancel == 1:
+            self.logger.warning("Login failed: user '%s' is cancelled", request.username)
             raise UnauthorizedException("Tài khoản đã bị vô hiệu hóa")
 
         # 4. Tạo JWT token
         token_data = {
             "sub": str(user.id),
             "username": user.username,
-            "role": user.role.value,
+            "role_id": user.role_id,
         }
         access_token = create_access_token(data=token_data)
 

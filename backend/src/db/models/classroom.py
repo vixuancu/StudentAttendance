@@ -5,22 +5,22 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import Base
 
 if TYPE_CHECKING:
-    from src.db.models.student import Student
+    from src.db.models.camera import Camera
+    from src.db.models.course_section import CourseSection
     from src.db.models.class_session import ClassSession
 
 
-class Attendance(Base):
-    __tablename__ = "attendance"
+class Classroom(Base):
+    __tablename__ = "classrooms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    student_id: Mapped[int] = mapped_column(Integer, ForeignKey("students.id"), nullable=False)
-    class_session_id: Mapped[int] = mapped_column(Integer, ForeignKey("class_session.id"), nullable=False)
-    status: Mapped[Optional[int]] = mapped_column(SmallInteger)
-    note: Mapped[Optional[str]] = mapped_column(String(255))
+    class_name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    camera_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("cameras.id"))
     is_cancel: Mapped[int] = mapped_column(SmallInteger, default=0)
     created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    student: Mapped["Student"] = relationship(back_populates="attendances")
-    class_session: Mapped["ClassSession"] = relationship(back_populates="attendances")
+    camera: Mapped[Optional["Camera"]] = relationship(back_populates="classrooms")
+    course_sections: Mapped[list["CourseSection"]] = relationship(back_populates="room")
+    class_sessions: Mapped[list["ClassSession"]] = relationship(back_populates="room")

@@ -7,93 +7,50 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Thêm backend/ vào sys.path để import src.*
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
 from sqlalchemy import text
 from src.db.session import async_session_factory, engine
+from src.db.models.role import Role
+from src.db.models.user import User
 from src.db.models.student import Student
-from src.db.models.user import User, Lecturer
-from src.db.models.enums import StudentStatus, UserRole
 from src.utils.security import hash_password
 
 
 # ── Sample Data ──────────────────────────────────────────────
 
+ROLES = [
+    {"role_name": "admin"},
+    {"role_name": "giao_vu"},
+    {"role_name": "giang_vien"},
+]
+
 STUDENTS = [
     {
-        "student_code": "2020CNTT001",
         "full_name": "Nguyễn Văn An",
-        "class_code": "CNTT01",
-        "email": "nguyenvanan@hou.edu.vn",
-        "phone": "0901234001",
-        "enrollment_year": 2020,
-        "status": StudentStatus.ACTIVE,
+        "gender": 1,
+        "administrative_class": "CNTT01",
     },
     {
-        "student_code": "2020CNTT002",
         "full_name": "Trần Thị Bình",
-        "class_code": "CNTT01",
-        "email": "tranthibinh@hou.edu.vn",
-        "phone": "0901234002",
-        "enrollment_year": 2020,
-        "status": StudentStatus.ACTIVE,
+        "gender": 0,
+        "administrative_class": "CNTT01",
     },
     {
-        "student_code": "2020CNTT003",
         "full_name": "Lê Hoàng Cường",
-        "class_code": "CNTT02",
-        "email": "lehoangcuong@hou.edu.vn",
-        "phone": "0901234003",
-        "enrollment_year": 2020,
-        "status": StudentStatus.ACTIVE,
+        "gender": 1,
+        "administrative_class": "CNTT02",
     },
     {
-        "student_code": "2021CNTT004",
         "full_name": "Phạm Minh Đức",
-        "class_code": "CNTT02",
-        "email": "phamminhduc@hou.edu.vn",
-        "phone": "0901234004",
-        "enrollment_year": 2021,
-        "status": StudentStatus.ACTIVE,
+        "gender": 1,
+        "administrative_class": "CNTT02",
     },
     {
-        "student_code": "2021CNTT005",
         "full_name": "Hoàng Thị Uyên",
-        "class_code": "CNTT01",
-        "email": "hoangthiuyen@hou.edu.vn",
-        "phone": "0901234005",
-        "enrollment_year": 2021,
-        "status": StudentStatus.ACTIVE,
-    },
-]
-
-USERS = [
-    {
-        "username": "admin",
-        "email": "admin@hou.edu.vn",
-        "password_hash": hash_password("admin123"),  # password: admin123
-        "role": UserRole.ADMIN,
-        "is_active": True,
-    },
-    {
-        "username": "gv_nguyen",
-        "email": "gvnguyen@hou.edu.vn",
-        "password_hash": hash_password("123456"),  # password: 123456
-        "role": UserRole.GIANG_VIEN,
-        "is_active": True,
-    },
-]
-
-LECTURERS = [
-    {
-        "lecturer_code": "GV001",
-        "full_name": "TS. Nguyễn Văn Giảng",
-        "email": "gvnguyen@hou.edu.vn",
-        "phone": "0912345678",
-        "department": "Khoa CNTT",
-        # user_id sẽ được gán sau khi tạo user
+        "gender": 0,
+        "administrative_class": "CNTT01",
     },
 ]
 
@@ -104,34 +61,51 @@ async def seed():
     async with async_session_factory() as session:
         try:
             # Kiểm tra đã có data chưa
-            result = await session.execute(text("SELECT COUNT(*) FROM students"))
+            result = await session.execute(text("SELECT COUNT(*) FROM roles"))
             count = result.scalar_one()
             if count > 0:
-                print(f"⚠️  DB đã có {count} students. Bỏ qua seed.")
-                print("   Muốn seed lại? Chạy: make db-reset && make migrate && make seed")
+                print(f"⚠️  DB đã có {count} roles. Bỏ qua seed.")
                 return
+
+            # ── Tạo Roles ──
+            role_objects = []
+            for data in ROLES:
+                role = Role(**data)
+                session.add(role)
+                role_objects.append(role)
+            await session.flush()
+            print(f"  ✅ Tạo {len(ROLES)} roles")
+
+            # ── Tạo Users ──
+            from datetime import datetime, timezone
+            users_data = [
+                {
+                    "username": "admin",
+                    "password": hash_password("admin123"),
+                    "full_name": "Administrator",
+                    "email": "admin@hou.edu.vn",
+                    "gender": 1,
+                    "birth_of_date": datetime(1990, 1, 1, tzinfo=timezone.utc),
+                    "role_id": role_objects[0].id,  # admin
+                },
+                {
+                    "username": "gv_nguyen",
+                    "password": hash_password("123456"),
+                    "full_name": "TS. Nguyễn Văn Giảng",
+                    "email": "gvnguyen@hou.edu.vn",
+                    "gender": 1,
+                    "birth_of_date": datetime(1985, 5, 15, tzinfo=timezone.utc),
+                    "role_id": role_objects[2].id,  # giang_vien
+                },
+            ]
+            for data in users_data:
+                session.add(User(**data))
+            print(f"  ✅ Tạo {len(users_data)} users")
 
             # ── Tạo Students ──
             for data in STUDENTS:
                 session.add(Student(**data))
             print(f"  ✅ Tạo {len(STUDENTS)} students")
-
-            # ── Tạo Users ──
-            user_objects = []
-            for data in USERS:
-                user = User(**data)
-                session.add(user)
-                user_objects.append(user)
-            await session.flush()  # Lấy ID cho users
-            print(f"  ✅ Tạo {len(USERS)} users")
-
-            # ── Tạo Lecturers (link với user) ──
-            for i, data in enumerate(LECTURERS):
-                # Link lecturer với user thứ 2 (gv_nguyen)
-                if i < len(user_objects) - 1:
-                    data["user_id"] = user_objects[i + 1].id
-                session.add(Lecturer(**data))
-            print(f"  ✅ Tạo {len(LECTURERS)} lecturers")
 
             await session.commit()
             print("🎉 Seed data thành công!")

@@ -1,47 +1,30 @@
-from datetime import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Boolean, Enum, ForeignKey, String, BigInteger, DateTime, func
+from sqlalchemy import Integer, SmallInteger, String, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.db.base import Base, IDMixin, TimestampMixin
-from src.db.models.enums import UserRole
+from src.db.base import Base
 
 if TYPE_CHECKING:
-    from src.db.models.course import Course
+    from src.db.models.role import Role
+    from src.db.models.course_section import CourseSection
 
 
-class User(Base, IDMixin, TimestampMixin):
+class User(Base):
     __tablename__ = "users"
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    email: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(100))
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    gender: Mapped[Optional[int]] = mapped_column(SmallInteger)
+    birth_of_date: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
+    is_online: Mapped[int] = mapped_column(SmallInteger, default=0)
+    is_cancel: Mapped[int] = mapped_column(SmallInteger, default=0)
+    created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    lecturer: Mapped[Optional["Lecturer"]] = relationship(back_populates="user")
-
-
-class Lecturer(Base, IDMixin):
-    __tablename__ = "lecturers"
-
-    user_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger,
-        ForeignKey("users.id", ondelete="CASCADE"),
-        unique=True,
-        nullable=True
-    )
-    lecturer_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
-    full_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now()
-    )
-
-    # Relationships
-    user: Mapped[Optional["User"]] = relationship(back_populates="lecturer")
-    courses: Mapped[list["Course"]] = relationship(back_populates="lecturer")
+    role: Mapped["Role"] = relationship(back_populates="users")
+    course_sections: Mapped[list["CourseSection"]] = relationship(back_populates="user")

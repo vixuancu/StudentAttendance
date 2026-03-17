@@ -3,11 +3,10 @@
 ## Mục lục
 
 - [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-- [Cài đặt nhanh (5 phút)](#cài-đặt-nhanh-5-phút)
+- [Cài đặt nhanh](#cài-đặt-nhanh)
 - [Cấu trúc dự án](#cấu-trúc-dự-án)
 - [Makefile Commands](#makefile-commands)
 - [Quy tắc code](#quy-tắc-code)
-- [Git Workflow](#git-workflow)
 
 ---
 
@@ -16,13 +15,14 @@
 | Tool       | Version | Ghi chú                            |
 | ---------- | ------- | ---------------------------------- |
 | **Python** | >= 3.11 | Khuyến nghị 3.12                   |
-| **Docker** | >= 24.x | Chạy PostgreSQL                    |
 | **Make**   | any     | Windows: dùng `choco install make` |
 | **Git**    | >= 2.x  |                                    |
 
+> Database: Supabase PostgreSQL (cloud) – không cần cài Docker.
+
 ---
-Typography
-## Cài đặt nhanh (5 phút)
+
+## Cài đặt nhanh
 
 ### 1. Clone project
 
@@ -53,19 +53,15 @@ make install
 ### 4. Cấu hình environment
 
 ```bash
-# Copy file env mẫu
 cp backend/.env.example backend/.env
-
-# Sửa nếu cần (mặc định đã OK cho dev local)
+# Sửa DATABASE_URL với thông tin Supabase của bạn
 ```
 
-### 5. Setup một lệnh (DB + migrate + seed)
+### 5. Chạy migrations + seed data
 
 ```bash
 make setup
 ```
-
-> Lệnh này sẽ: khởi động PostgreSQL Docker → chạy migrations → seed data mẫu
 
 ### 6. Chạy server
 
@@ -98,20 +94,21 @@ StudentAttendance/
 │   ├── alembic/                # Database migrations
 │   ├── .env                    # Environment config (git-ignored)
 │   └── requirements.txt
-├── ai_core/                    # AI face recognition module
+├── ai_core/                    # AI face recognition module (FaceNet512)
 ├── scripts/                    # Seed data, init scripts
-├── docker-compose.yml          # PostgreSQL + pgAdmin
 ├── Makefile                    # Dev commands
 └── README.md
 ```
 
-### Kiến trúc layered
+### Database Schema (Supabase)
 
 ```
-Route (thin) → Controller (map DTO) → Service (business logic) → Repository (DB)
+roles → users → course_section → class_session → attendance
+                                → enrollments
+cameras → classrooms
+courses → course_section
+students → enrollments, attendance
 ```
-
-> Chi tiết kiến trúc: xem file `.agent/workflows/project-structure.md`
 
 ---
 
@@ -123,17 +120,6 @@ make help           # Xem tất cả commands
 # ── App ──
 make dev            # Chạy dev server (hot reload)
 make run            # Chạy production mode
-
-# ── Database ──
-make db-up          # Khởi động PostgreSQL Docker
-make db-down        # Tắt Docker
-make db-reset       # Xóa DB + khởi động lại
-
-# ── Migrations ──
-make migrate                        # Chạy migrations
-make migrate-create m="add_xyz"     # Tạo migration mới
-make migrate-down                   # Rollback 1 migration
-make migrate-history                # Xem lịch sử
 
 # ── Data ──
 make seed           # Seed data mẫu
@@ -157,65 +143,12 @@ make clean          # Xóa __pycache__
 | **Service**    | Business logic, throw `BusinessException`     | Import FastAPI, biết HTTP |
 | **Repository** | CRUD database                                 | Chứa logic nghiệp vụ      |
 
-### Tạo API mới (checklist)
-
-1. `src/repository/interfaces/i_xxx_repo.py`
-2. `src/repository/xxx_repo.py`
-3. `src/services/interfaces/i_xxx_service.py`
-4. `src/services/xxx_service.py`
-5. `src/controller/xxx_controller.py`
-6. `src/deps.py` — đăng ký DI
-7. `src/routes/v1/xxx_routes.py`
-8. `src/routes/router.py` — include router
-
-### Import rules
-
-```python
-# ✅ ĐÚNG
-from src.config.settings import settings
-from src.db.models.student import Student
-
-# ❌ SAI
-from backend.src.config.settings import settings
-```
-
----
-
-## Git Workflow
-
-### Branch naming
-
-```
-feature/SA-xxx-mô-tả     # Tính năng mới
-bugfix/SA-xxx-mô-tả      # Sửa bug
-hotfix/SA-xxx-mô-tả      # Fix khẩn cấp
-```
-
-### Commit message format
-
-```
-feat: thêm API tạo sinh viên
-fix: sửa lỗi pagination student
-refactor: tách service logic
-docs: cập nhật README
-```
-
-### Flow
-
-1. Tạo branch từ `develop`
-2. Code + test
-3. Push + tạo Pull Request
-4. Review → Merge vào `develop`
-
 ---
 
 ## Truy cập nhanh
 
-| URL                          | Mô tả            |
-| ---------------------------- | ---------------- |
-| http://localhost:8000        | API Root         |
-| http://localhost:8000/docs   | Swagger UI       |
-| http://localhost:8000/health | Health check     |
-| http://localhost:5050        | pgAdmin (DB GUI) |
-
-**pgAdmin login**: `admin@admin.com` / `admin`
+| URL                          | Mô tả        |
+| ---------------------------- | ------------ |
+| http://localhost:8000        | API Root     |
+| http://localhost:8000/docs   | Swagger UI   |
+| http://localhost:8000/health | Health check |

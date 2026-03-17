@@ -10,21 +10,24 @@ from src.services.interfaces.i_auth_service import IAuthService
 
 
 class AuthController:
-    """Controller điều phối cho Auth – nhận IAuthService qua DI."""
-
     def __init__(self, service: IAuthService):
         self.service = service
 
     async def login(self, request: LoginRequest) -> DataResponse[LoginResponse]:
         user, access_token = await self.service.login(request)
 
+        # Lấy role_name từ relationship nếu có
+        role_name = user.role.role_name if user.role else None
+
         login_data = LoginResponse(
             token=TokenResponse(access_token=access_token),
             user=UserInfoResponse(
                 id=user.id,
                 username=user.username,
+                full_name=user.full_name,
                 email=user.email,
-                role=user.role.value,
+                role_id=user.role_id,
+                role_name=role_name,
             ),
         )
 

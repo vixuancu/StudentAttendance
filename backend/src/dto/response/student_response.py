@@ -1,18 +1,17 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
 
 class StudentResponse(BaseModel):
-    id: int 
-    student_code: str
+    id: int
     full_name: str
-    class_code: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    enrollment_year: Optional[int] = None
-    status: str
-    created_at: datetime
+    birth_of_date: Optional[datetime] = None
+    gender: Optional[int] = None
+    administrative_class: str
+    is_cancel: int = 0
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True # cho phéo convert từ SQLAlchemy model
+        from_attributes = True

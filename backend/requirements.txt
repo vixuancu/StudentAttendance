@@ -4,8 +4,7 @@ uvicorn[standard]>=0.24.0
 
 #database
 sqlalchemy[asyncio]>=2.0.25 # ORM
-asyncpg>=0.29.0 # PostgreSQL async driver
-alembic>=1.13.1 # Database migrations
+asyncpg>=0.29.0 # PostgreSQL async driver (Supabase)
 
 #config
 pydantic>=2.5.0

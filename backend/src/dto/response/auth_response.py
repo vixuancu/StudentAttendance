@@ -9,8 +9,10 @@ class TokenResponse(BaseModel):
 class UserInfoResponse(BaseModel):
     id: int
     username: str
-    email: str | None = None
-    role: str
+    full_name: str | None = None
+    email: str
+    role_id: int
+    role_name: str | None = None
 
     class Config:
         from_attributes = True
