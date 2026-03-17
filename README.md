@@ -34,13 +34,13 @@ cd StudentAttendance
 ### 2. Tạo virtual environment
 
 ```bash
-python -m venv venv
+python -m venv .venv
 
 # Windows
-venv\Scripts\activate
+.venv\Scripts\activate
 
 # macOS/Linux
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 3. Cài dependencies
@@ -53,15 +53,21 @@ make install
 ### 4. Cấu hình environment
 
 ```bash
+# macOS/Linux
 cp backend/.env.example backend/.env
+
+# Windows PowerShell
+Copy-Item backend/.env.example backend/.env
 # Sửa DATABASE_URL với thông tin Supabase của bạn
 ```
 
-### 5. Chạy migrations + seed data
+### 5. Setup lần đầu
 
 ```bash
 make setup
 ```
+
+`make setup` sẽ cài dependencies và chạy seed **nếu** có `scripts/seed_data.py`.
 
 ### 6. Chạy server
 
@@ -91,11 +97,10 @@ StudentAttendance/
 │   │   ├── routes/             # API endpoint declarations
 │   │   ├── middleware/         # CORS, Logging, Auth
 │   │   └── utils/              # Exceptions, Security, helpers
-│   ├── alembic/                # Database migrations
 │   ├── .env                    # Environment config (git-ignored)
 │   └── requirements.txt
-├── ai_core/                    # AI face recognition module (FaceNet512)
-├── scripts/                    # Seed data, init scripts
+├── ai_core/                    # AI face recognition module
+├── scripts/                    # Utility scripts
 ├── Makefile                    # Dev commands
 └── README.md
 ```
