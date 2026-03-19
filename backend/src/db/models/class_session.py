@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Integer, SmallInteger, String, DateTime, Text, ForeignKey, func
+from sqlalchemy import Boolean, Integer, SmallInteger, String, DateTime, Text, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -22,7 +22,7 @@ class ClassSession(Base):
     late_time: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True))
     status: Mapped[Optional[int]] = mapped_column(SmallInteger)
     note: Mapped[Optional[str]] = mapped_column(Text)
-    is_cancel: Mapped[int] = mapped_column(SmallInteger, default=0)
+    is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

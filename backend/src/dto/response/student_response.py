@@ -7,9 +7,9 @@ class StudentResponse(BaseModel):
     id: int
     full_name: str
     birth_of_date: Optional[datetime] = None
-    gender: Optional[int] = None
+    gender: Optional[bool] = None
     administrative_class: str
-    is_cancel: int = 0
+    is_cancel: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

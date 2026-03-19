@@ -34,7 +34,7 @@ class StudentService(IStudentService):
     ) -> Tuple[List[Student], int]:
         filters: List[Any] = []
         # Soft delete filter
-        filters.append(Student.is_cancel == 0)
+        filters.append(Student.is_cancel.is_(False))
 
         if search:
             filters.append(Student.full_name.ilike(f"%{search}%"))
@@ -60,4 +60,4 @@ class StudentService(IStudentService):
     async def delete(self, id: int) -> bool:
         student = await self.get_by_id(id)
         # Soft delete
-        return await self.repo.update(student, {"is_cancel": 1})
+        return await self.repo.update(student, {"is_cancel": True})

@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Integer, SmallInteger, String, DateTime, ForeignKey, func
+from sqlalchemy import Boolean, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -27,7 +27,7 @@ class CourseSection(Base):
     number_of_periods: Mapped[int] = mapped_column(Integer, nullable=False)
     start_time: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True))
     end_time: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True))
-    is_cancel: Mapped[int] = mapped_column(SmallInteger, default=0)
+    is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

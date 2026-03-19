@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Integer, SmallInteger, String, DateTime, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Boolean, Integer, String, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -18,7 +18,7 @@ class Enrollment(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     student_id: Mapped[int] = mapped_column(Integer, ForeignKey("students.id"), nullable=False)
     course_section_id: Mapped[int] = mapped_column(Integer, ForeignKey("course_section.id"), nullable=False)
-    is_cancel: Mapped[int] = mapped_column(SmallInteger, default=0)
+    is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

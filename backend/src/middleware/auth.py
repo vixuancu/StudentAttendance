@@ -52,7 +52,7 @@ async def get_current_user(
     if user is None:
         raise UnauthorizedException("Người dùng không tồn tại")
 
-    if user.is_cancel == 1:
+    if user.is_cancel:
         raise UnauthorizedException("Tài khoản đã bị vô hiệu hóa")
 
     return user

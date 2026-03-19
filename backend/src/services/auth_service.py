@@ -32,7 +32,7 @@ class AuthService(IAuthService):
             raise UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng")
 
         # 3. Kiểm tra is_cancel (thay cho is_active)
-        if user.is_cancel == 1:
+        if user.is_cancel:
             self.logger.warning("Login failed: user '%s' is cancelled", request.username)
             raise UnauthorizedException("Tài khoản đã bị vô hiệu hóa")
 

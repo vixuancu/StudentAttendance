@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Integer, SmallInteger, String, DateTime, ForeignKey, func
+from sqlalchemy import Boolean, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -17,11 +17,11 @@ class User(Base):
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    gender: Mapped[Optional[int]] = mapped_column(SmallInteger)
+    gender: Mapped[Optional[bool]] = mapped_column(Boolean)
     birth_of_date: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
-    is_online: Mapped[int] = mapped_column(SmallInteger, default=0)
-    is_cancel: Mapped[int] = mapped_column(SmallInteger, default=0)
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

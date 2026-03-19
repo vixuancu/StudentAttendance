@@ -5,10 +5,9 @@ Dùng integer mapping để đồng bộ với SmallInteger trong DB.
 
 
 class Gender:
-    """Giới tính: 0=Nữ, 1=Nam, 2=Khác"""
-    FEMALE = 0
-    MALE = 1
-    OTHER = 2
+    """Giới tính: False=Nữ, True=Nam"""
+    FEMALE = False
+    MALE = True
 
 
 class CameraStatus:
@@ -45,6 +44,6 @@ class AttendanceStatus:
 
 
 class CancelStatus:
-    """Soft delete: 0=Active, 1=Cancelled"""
-    ACTIVE = 0
-    CANCELLED = 1
+    """Soft delete: False=Active, True=Cancelled"""
+    ACTIVE = False
+    CANCELLED = True
