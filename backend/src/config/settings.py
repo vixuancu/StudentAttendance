@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # ── Security ────────────────────────────────────────────
     secret_key: str = "your-secret-key"
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 3600
 
     # ── CORS ────────────────────────────────────────────────
     cors_origins: list[str] = ["http://localhost:3001", "http://localhost:5173"]

@@ -44,6 +44,9 @@ from src.services.interfaces.i_auth_service import IAuthService
 from src.services.auth_service import AuthService
 
 from src.controller.auth_controller import AuthController
+from src.controller.account_controller import AccountController
+from src.services.interfaces.i_account_service import IAccountService
+from src.services.account_service import AccountService
 
 
 def get_user_repo(
@@ -62,3 +65,18 @@ def get_auth_controller(
     service: IAuthService = Depends(get_auth_service),
 ) -> AuthController:
     return AuthController(service)
+
+
+# ===================== ACCOUNT ===================== #
+
+
+def get_account_service(
+    user_repo: IUserRepository = Depends(get_user_repo),
+) -> IAccountService:
+    return AccountService(user_repo)
+
+
+def get_account_controller(
+    service: IAccountService = Depends(get_account_service),
+) -> AccountController:
+    return AccountController(service)
