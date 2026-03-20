@@ -5,6 +5,7 @@ Database engine & session factory với Connection Pool được cấu hình đ�
 import logging
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.config.settings import settings
@@ -39,6 +40,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency để inject database session – tự động commit/rollback."""
     async with async_session_factory() as session:
         try:
+            await session.execute(text("SET TIME ZONE 'Asia/Ho_Chi_Minh'"))
             yield session
             await session.commit()
         except Exception:

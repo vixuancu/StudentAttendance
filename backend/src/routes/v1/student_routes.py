@@ -7,10 +7,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 
 from src.controller.student_controller import StudentController
+from src.db.models.user import User
 from src.deps import get_student_controller
 from src.dto.common import DataResponse, ListResponse
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
 from src.dto.response.student_response import StudentResponse
+from src.middleware.auth import require_roles
 
 router = APIRouter(prefix="/students", tags=["Students"])
 
@@ -21,6 +23,7 @@ async def get_students(
     page_size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
     search: Optional[str] = Query(None, description="Tìm theo tên"),
     administrative_class: Optional[str] = Query(None, description="Lọc theo lớp hành chính"),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
     from src.dto.common import PaginationParams
@@ -31,6 +34,7 @@ async def get_students(
 @router.get("/{student_id}", response_model=DataResponse[StudentResponse])
 async def get_student(
     student_id: int,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
     return await ctrl.get_student(student_id)
@@ -43,6 +47,7 @@ async def get_student(
 )
 async def create_student(
     request: StudentCreateRequest,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
     return await ctrl.create_student(request)
@@ -52,6 +57,7 @@ async def create_student(
 async def update_student(
     student_id: int,
     request: StudentUpdateRequest,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
     return await ctrl.update_student(student_id, request)
@@ -60,6 +66,7 @@ async def update_student(
 @router.delete("/{student_id}", response_model=DataResponse)
 async def delete_student(
     student_id: int,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
     return await ctrl.delete_student(student_id)

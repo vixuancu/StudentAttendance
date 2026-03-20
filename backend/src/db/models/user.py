@@ -18,12 +18,12 @@ class User(Base):
     full_name: Mapped[Optional[str]] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     gender: Mapped[Optional[bool]] = mapped_column(Boolean)
-    birth_of_date: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    birth_of_date: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False))
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
     is_online: Mapped[bool] = mapped_column(Boolean, default=False)
     is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
+    created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now())
+    updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     role: Mapped["Role"] = relationship(back_populates="users")

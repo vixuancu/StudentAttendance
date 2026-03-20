@@ -18,8 +18,8 @@ class Attendance(Base):
     status: Mapped[Optional[int]] = mapped_column(SmallInteger)
     note: Mapped[Optional[str]] = mapped_column(String(255))
     is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
+    created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now())
+    updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     student: Mapped["Student"] = relationship(back_populates="attendances")

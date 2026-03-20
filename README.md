@@ -1,39 +1,33 @@
-# 🎓 StudentAttendance – Hệ thống Điểm danh Sinh viên bằng AI
+# StudentAttendance Backend Guide
 
-## Mục lục
+Backend API cho hệ thống diem danh sinh vien bang AI, duoc xay dung voi FastAPI + SQLAlchemy Async.
 
-- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-- [Cài đặt nhanh](#cài-đặt-nhanh)
-- [Cấu trúc dự án](#cấu-trúc-dự-án)
-- [Makefile Commands](#makefile-commands)
-- [Quy tắc code](#quy-tắc-code)
+README nay tap trung vao 2 muc tieu:
+- Giup nguoi moi chay duoc project nhanh.
+- Giup dev moi hieu luong code de tiep tuc phat trien ma khong bi roi.
 
----
+## 1) Tong quan nhanh
 
-## Yêu cầu hệ thống
+- Kieu kien truc: Route -> Controller -> Service -> Repository -> Database.
+- Prefix API: `/api/v1`.
+- Auth: JWT Bearer token.
+- Database: PostgreSQL (uu tien Supabase), ket noi async qua `asyncpg`.
+- Response format thong nhat: `success`, `message`, `data` (hoac `details` khi loi).
 
-| Tool       | Version | Ghi chú                            |
-| ---------- | ------- | ---------------------------------- |
-| **Python** | >= 3.11 | Khuyến nghị 3.12                   |
-| **Make**   | any     | Windows: dùng `choco install make` |
-| **Git**    | >= 2.x  |                                    |
+## 2) Chay project trong 5 phut
 
-> Database: Supabase PostgreSQL (cloud) – không cần cài Docker.
+### Yeu cau
 
----
+- Python >= 3.11
+- Git
+- Make (khuyen nghi)
 
-## Cài đặt nhanh
-
-### 1. Clone project
+### Cai dat
 
 ```bash
 git clone <repo-url>
 cd StudentAttendance
-```
 
-### 2. Tạo virtual environment
-
-```bash
 python -m venv .venv
 
 # Windows
@@ -41,119 +35,209 @@ python -m venv .venv
 
 # macOS/Linux
 source .venv/bin/activate
-```
 
-### 3. Cài dependencies
-
-```bash
 make install
-# hoặc: pip install -r backend/requirements.txt
 ```
 
-### 4. Cấu hình environment
+### Cau hinh env
 
 ```bash
-# macOS/Linux
-cp backend/.env.example backend/.env
-
 # Windows PowerShell
 Copy-Item backend/.env.example backend/.env
-# Sửa DATABASE_URL với thông tin Supabase của bạn
+
+# macOS/Linux
+cp backend/.env.example backend/.env
 ```
 
-### 5. Setup lần đầu
+Bat buoc sua it nhat:
+- `DATABASE_URL`
+- `SECRET_KEY`
 
-```bash
-make setup
-```
-
-`make setup` sẽ cài dependencies và chạy seed **nếu** có `scripts/seed_data.py`.
-
-### 6. Chạy server
+### Chay server
 
 ```bash
 make dev
 ```
 
-Server chạy tại: **http://localhost:8000**
-Swagger Docs: **http://localhost:8000/docs**
+Kiem tra:
+- Swagger: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health`
 
----
+## 3) Cau truc thu muc va y nghia
 
-## Cấu trúc dự án
-
-```
+```text
 StudentAttendance/
-├── backend/                    # FastAPI backend
-│   ├── src/
-│   │   ├── main.py             # Entry point + Exception handlers
-│   │   ├── deps.py             # Dependency Injection container
-│   │   ├── config/             # Settings, Logging config
-│   │   ├── db/                 # Database models, session, base
-│   │   ├── dto/                # Request/Response Pydantic models
-│   │   ├── repository/         # Data access layer (interfaces + impl)
-│   │   ├── services/           # Business logic (interfaces + impl)
-│   │   ├── controller/         # Thin orchestration layer
-│   │   ├── routes/             # API endpoint declarations
-│   │   ├── middleware/         # CORS, Logging, Auth
-│   │   └── utils/              # Exceptions, Security, helpers
-│   ├── .env                    # Environment config (git-ignored)
-│   └── requirements.txt
-├── ai_core/                    # AI face recognition module
-├── scripts/                    # Utility scripts
-├── Makefile                    # Dev commands
-└── README.md
+|- backend/
+|  |- src/
+|  |  |- main.py                 # Tao app, middleware, exception handlers
+|  |  |- routes/                 # Khai bao endpoint (HTTP layer)
+|  |  |- controller/             # Dieu phoi request/response DTO
+|  |  |- services/               # Business logic
+|  |  |- repository/             # Truy van DB
+|  |  |- dto/                    # Request/Response schemas
+|  |  |- db/                     # SQLAlchemy models, session, base
+|  |  |- middleware/             # Auth dependency, CORS, logging
+|  |  |- utils/                  # Security, exceptions, helpers
+|  |  |- config/                 # Settings, logging config
+|  |- .env.example
+|  |- requirements.txt
+|- ai_core/
+|- scripts/
+|- Makefile
 ```
 
-### Database Schema (Supabase)
+## 4) Luong code backend (de hieu nhanh)
 
+Vi du voi login:
+
+1. Route nhan request HTTP trong `backend/src/routes/v1/auth_routes.py`.
+2. Route goi Controller (`AuthController`).
+3. Controller goi Service (`AuthService`) de xu ly business.
+4. Service goi Repository (`UserRepository`) de lay user tu DB.
+5. Service tao JWT, tra lai Controller.
+6. Controller map ve DTO va tra response thong nhat cho client.
+
+Ly do tach layer nhu vay:
+- De test va thay doi de dang.
+- Service khong phu thuoc FastAPI (de tai su dung).
+- Route gon, doc de.
+
+## 5) Auth + JWT dang duoc su dung
+
+### Endpoint auth hien co
+
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/change-password`
+
+### Login request
+
+```json
+{
+  "username": "admin",
+  "password": "admin123"
+}
 ```
-roles → users → course_section → class_session → attendance
-                                → enrollments
-cameras → classrooms
-courses → course_section
-students → enrollments, attendance
+
+### Login response (rut gon)
+
+```json
+{
+  "success": true,
+  "message": "Dang nhap thanh cong",
+  "data": {
+    "token": {
+      "access_token": "<jwt>",
+      "token_type": "bearer"
+    },
+    "user": {
+      "id": 1,
+      "username": "admin",
+      "full_name": "Nguyen Van A",
+      "email": "admin@edu.vn",
+      "role_id": 1,
+      "role_name": "admin"
+    }
+  }
+}
 ```
 
----
+### JWT duoc dung the nao
 
-## Makefile Commands
+- Payload co `sub` (user id), `username`, `role_id`, `exp`.
+- API can auth doc token tu header `Authorization: Bearer <token>`.
+- Dependency `get_current_user` giai ma token, load user DB, chan user bi vo hieu hoa.
+- Dependency `require_roles(...)` dung de chan theo role ngay tai route.
+
+## 6) Phan quyen hien tai
+
+- FE co the an/hien menu theo role, nhung BE moi la noi chan that.
+- Vi du `students` da duoc chan bang role `admin`, `giao_vu`.
+- Neu mo rong route moi, uu tien them `Depends(require_roles(...))` tai route.
+
+## 7) Error format thong nhat
+
+Tat ca loi deu duoc handler trong `backend/src/main.py`.
+
+Mau co ban:
+
+```json
+{
+  "success": false,
+  "message": "Noi dung loi",
+  "error_code": "UNAUTHORIZED"
+}
+```
+
+Validation loi co them `details`.
+
+## 8) Makefile commands hay dung
 
 ```bash
-make help           # Xem tất cả commands
-
-# ── App ──
-make dev            # Chạy dev server (hot reload)
-make run            # Chạy production mode
-
-# ── Data ──
-make seed           # Seed data mẫu
-make setup          # Setup toàn bộ (lần đầu)
-
-# ── Khác ──
-make install        # Cài dependencies
-make clean          # Xóa __pycache__
+make help      # xem toan bo lenh
+make install   # cai dependencies
+make dev       # chay dev server
+make run       # chay mode thuong
+make setup     # install + seed (neu co script seed)
+make clean     # xoa __pycache__ va .pyc
 ```
 
+## 9) Danh gia nhanh base hien tai (uu/nhuoc)
+
+### Diem on
+
+- Kien truc layer ro rang, de onboard.
+- Exception handling tong hop tai mot cho.
+- Auth flow da day du login/me/change-password.
+- Co middleware auth va role guard o BE.
+
+### Diem can nang cap tiep
+
+- Chua co migration tool (nen bo sung Alembic som).
+- Mot so route v1 dang rong (`attendance_routes.py`, `class_routes.py`, `recognition_routes.py`).
+- DB session dang auto-commit theo request; can giu ky luat transaction khi nghiep vu phuc tap hon.
+- Nen bo sung test auth/permission o muc API.
+
+## 10) Quy tac phat trien de code ben
+
+- Route chi lam viec HTTP + dependency injection.
+- Controller chi map request/response, khong viet business logic.
+- Service chua business logic va throw `BusinessException`.
+- Repository chi lo DB query.
+- Moi endpoint moi can:
+  - DTO request/response ro rang
+  - auth/phong quyen neu can
+  - thong diep loi nhat quan
+
+## 11) Checklist debug thuong gap
+
+- 401 ngay ca khi da login:
+  - Kiem tra header `Authorization` co dung `Bearer`.
+  - Kiem tra `SECRET_KEY` giua moi truong co bi lech.
+- FE goi khong dung route:
+  - Nho prefix dung la `/api/v1`.
+- Loi CORS:
+  - Them origin FE vao `CORS_ORIGINS` trong `backend/.env`.
+- Login fail du credentials dung:
+  - Kiem tra password trong DB da duoc hash bcrypt.
+
+## 12) Huong mo rong tiep theo
+
+- Them Alembic migration.
+- Them bo test cho auth + role permission.
+- Hoan thien route attendance/class/recognition.
+- Sau khi schema DB chot, moi them chuc nang tao tai khoan.
+
 ---
 
-## Quy tắc code
+Neu ban moi vao team, hay doc theo thu tu nay de nam he thong nhanh:
 
-### Layer responsibilities
+1. `backend/src/main.py`
+2. `backend/src/routes/router.py`
+3. `backend/src/routes/v1/auth_routes.py`
+4. `backend/src/controller/auth_controller.py`
+5. `backend/src/services/auth_service.py`
+6. `backend/src/middleware/auth.py`
+7. `backend/src/db/session.py`
 
-| Layer          | Nhiệm vụ                                      | KHÔNG được                |
-| -------------- | --------------------------------------------- | ------------------------- |
-| **Routes**     | Khai báo endpoint, gọi Controller             | Chứa logic                |
-| **Controller** | Nhận request → gọi Service → map Response DTO | Chứa business logic       |
-| **Service**    | Business logic, throw `BusinessException`     | Import FastAPI, biết HTTP |
-| **Repository** | CRUD database                                 | Chứa logic nghiệp vụ      |
-
----
-
-## Truy cập nhanh
-
-| URL                          | Mô tả        |
-| ---------------------------- | ------------ |
-| http://localhost:8000        | API Root     |
-| http://localhost:8000/docs   | Swagger UI   |
-| http://localhost:8000/health | Health check |
+Doc xong 7 file tren la da hieu hon 80% luong backend hien tai.

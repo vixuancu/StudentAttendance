@@ -21,3 +21,11 @@ class UserRepository(BaseRepository, IUserRepository):
             .where(User.username == username)
         )
         return result.scalar_one_or_none()
+
+    async def get_by_id(self, id: int) -> Optional[User]:
+        result = await self.db.execute(
+            select(User)
+            .options(selectinload(User.role))
+            .where(User.id == id)
+        )
+        return result.scalar_one_or_none()

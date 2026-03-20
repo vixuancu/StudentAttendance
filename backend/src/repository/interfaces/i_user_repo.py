@@ -16,3 +16,8 @@ class IUserRepository(ABC):
     async def get_by_id(self, id: int) -> Optional[User]:
         """Lấy user theo ID."""
         pass
+
+    @abstractmethod
+    async def update(self, db_obj: User, data: dict) -> User:
+        """Cập nhật thông tin user."""
+        pass
