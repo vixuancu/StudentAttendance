@@ -55,12 +55,13 @@ class UserRepository(BaseRepository, IUserRepository):
         limit: int = 10,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> list[User]:
         query = (
             select(User)
             .options(selectinload(User.role))
             .join(Role, User.role_id == Role.id)
-            .where(User.is_cancel.is_(False), Role.is_cancel.is_(False))
+            .where(Role.is_cancel.is_(False))
             .order_by(User.created_at.desc(), User.id.desc())
         )
 
@@ -77,6 +78,9 @@ class UserRepository(BaseRepository, IUserRepository):
         if role_name:
             query = query.where(Role.role_name == role_name)
 
+        if is_cancel is not None:
+            query = query.where(User.is_cancel.is_(is_cancel))
+
         query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -85,12 +89,13 @@ class UserRepository(BaseRepository, IUserRepository):
         self,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> int:
         query = (
             select(func.count(User.id))
             .select_from(User)
             .join(Role, User.role_id == Role.id)
-            .where(User.is_cancel.is_(False), Role.is_cancel.is_(False))
+            .where(Role.is_cancel.is_(False))
         )
 
         if search:
@@ -105,6 +110,9 @@ class UserRepository(BaseRepository, IUserRepository):
 
         if role_name:
             query = query.where(Role.role_name == role_name)
+
+        if is_cancel is not None:
+            query = query.where(User.is_cancel.is_(is_cancel))
 
         result = await self.db.execute(query)
         return result.scalar_one() or 0

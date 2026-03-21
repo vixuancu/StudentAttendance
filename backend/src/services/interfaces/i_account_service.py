@@ -14,6 +14,7 @@ class IAccountService(ABC):
         pagination: PaginationParams,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> tuple[list[User], int]:
         pass
 

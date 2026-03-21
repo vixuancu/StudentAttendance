@@ -21,19 +21,25 @@ class AccountService(IAccountService):
         pagination: PaginationParams,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> tuple[list[User], int]:
         users = await self.user_repo.get_all_users(
             skip=pagination.offset,
             limit=pagination.limit,
             search=search,
             role_name=role_name,
+            is_cancel=is_cancel,
         )
-        total = await self.user_repo.count_users(search=search, role_name=role_name)
+        total = await self.user_repo.count_users(
+            search=search,
+            role_name=role_name,
+            is_cancel=is_cancel,
+        )
         return users, total
 
     async def get_account_by_id(self, user_id: int) -> User:
         user = await self.user_repo.get_by_id(user_id)
-        if user is None or user.is_cancel:
+        if user is None :
             raise NotFoundException(resource="Tài khoản", identifier=user_id)
         return user
 

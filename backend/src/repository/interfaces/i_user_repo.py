@@ -40,6 +40,7 @@ class IUserRepository(ABC):
         limit: int = 10,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> list[User]:
         """Lấy danh sách users có filter."""
         pass
@@ -49,6 +50,7 @@ class IUserRepository(ABC):
         self,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> int:
         """Đếm users có filter."""
         pass
