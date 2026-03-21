@@ -77,3 +77,7 @@ class AccountController:
             data=self._to_response_model(user),
             message="Lấy thông tin tài khoản thành công",
         )
+
+    async def reset_password(self, user_id: int) -> DataResponse[None]:
+        await self.service.reset_password(user_id)
+        return DataResponse(message="Đặt lại mật khẩu thành công")

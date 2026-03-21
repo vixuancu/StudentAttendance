@@ -57,3 +57,12 @@ async def update_account(
     ctrl: AccountController = Depends(get_account_controller),
 ):
     return await ctrl.update_account(user_id, request)
+
+
+@router.post("/{user_id}/reset-password", response_model=DataResponse[None])
+async def reset_password(
+    user_id: int,
+    _current_user: User = Depends(require_roles("admin")),
+    ctrl: AccountController = Depends(get_account_controller),
+):
+    return await ctrl.reset_password(user_id)

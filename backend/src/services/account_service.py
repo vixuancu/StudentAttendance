@@ -95,3 +95,10 @@ class AccountService(IAccountService):
         updated = await self.user_repo.update(user, payload)
         refreshed = await self.user_repo.get_by_id(updated.id)
         return refreshed if refreshed is not None else updated
+
+    async def reset_password(self, user_id: int) -> None:
+        user = await self.user_repo.get_by_id(user_id)
+        if user is None:
+            raise NotFoundException(resource="Tài khoản", identifier=user_id)
+        await self.user_repo.update(user, {"password": hash_password("123456")})
+        self.logger.info("Reset password for account id=%s", user_id)

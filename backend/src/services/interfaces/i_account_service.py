@@ -29,3 +29,7 @@ class IAccountService(ABC):
     @abstractmethod
     async def get_account_by_id(self, user_id: int) -> User:
         pass
+
+    @abstractmethod
+    async def reset_password(self, user_id: int) -> None:
+        pass
