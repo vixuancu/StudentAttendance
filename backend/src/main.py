@@ -28,6 +28,7 @@ from src.utils.exceptions import (
     UnauthorizedException,
     ValidationException,
 )
+from src.utils.exception import ApiError
 
 # Khởi tạo logging trước khi tạo app
 setup_logging()
@@ -67,6 +68,23 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # ===================== BUSINESS EXCEPTION HANDLERS ====================== #
 # Service throw BusinessException → convert thành HTTP response tại đây.
+
+
+@app.exception_handler(ApiError)
+async def api_exception_handler(_request, exc: ApiError):
+
+    response = {
+        "success": False,
+        "error_code": exc.error_code,
+    }
+
+    if exc.message:
+        response["message"] = exc.message
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=response,
+    )
 
 
 @app.exception_handler(UnauthorizedException)
@@ -182,9 +200,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 
 @app.exception_handler(RequestValidationError)
-async def request_validation_handler(
-    request: Request, exc: RequestValidationError
-):
+async def request_validation_handler(request: Request, exc: RequestValidationError):
     """
     Pydantic validation error → trả JSON rõ ràng thay vì mảng lỗi phức tạp.
     """
@@ -195,7 +211,9 @@ async def request_validation_handler(
         field = " → ".join(str(loc) for loc in err["loc"])
         details.append({"field": field, "message": err["msg"], "type": err["type"]})
 
-    logger.warning("Validation error: %s %s → %s", request.method, request.url.path, details)
+    logger.warning(
+        "Validation error: %s %s → %s", request.method, request.url.path, details
+    )
 
     return JSONResponse(
         status_code=422,

@@ -80,3 +80,28 @@ def get_account_controller(
     service: IAccountService = Depends(get_account_service),
 ) -> AccountController:
     return AccountController(service)
+
+
+# ===================== CAMERA ===================== #
+from src.repository.interfaces.i_camera_repo import ICameraRepository
+from src.repository.camera_repo import CameraRepository
+
+from src.services.interfaces.i_camera_service import ICameraService
+from src.services.camera_service import CameraService
+
+from src.controller.camera_controller import CameraController
+
+def get_camera_repo(
+    db: AsyncSession = Depends(get_db)
+) -> ICameraRepository:
+    return CameraRepository(db)
+
+def get_camera_service(
+    camera_repo: ICameraRepository = Depends(get_camera_repo),
+) -> ICameraService:
+    return CameraService(camera_repo)
+    
+def get_camera_controller(
+    service: ICameraService = Depends(get_camera_service),
+) -> CameraController:
+    return CameraController(service)
