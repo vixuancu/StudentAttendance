@@ -33,11 +33,13 @@ class AccountController:
         pagination: PaginationParams,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> ListResponse[AccountResponse]:
         users, total = await self.service.list_accounts(
             pagination=pagination,
             search=search,
             role_name=role_name,
+            is_cancel=is_cancel,
         )
 
         return ListResponse(
@@ -75,3 +77,7 @@ class AccountController:
             data=self._to_response_model(user),
             message="Lấy thông tin tài khoản thành công",
         )
+
+    async def reset_password(self, user_id: int) -> DataResponse[None]:
+        await self.service.reset_password(user_id)
+        return DataResponse(message="Đặt lại mật khẩu thành công")

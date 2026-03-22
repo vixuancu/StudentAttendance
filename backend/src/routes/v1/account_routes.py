@@ -19,11 +19,12 @@ async def get_accounts(
     page_size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
     search: Optional[str] = Query(None, description="Tìm theo họ tên, username, email"),
     role_name: Optional[str] = Query(None, description="Lọc theo role_name"),
+    is_cancel: Optional[bool] = Query(None, description="Lọc theo trạng thái khóa tài khoản"),
     _current_user: User = Depends(require_roles("admin")),
     ctrl: AccountController = Depends(get_account_controller),
 ):
     pagination = PaginationParams(page=page, page_size=page_size)
-    return await ctrl.list_accounts(pagination, search, role_name)
+    return await ctrl.list_accounts(pagination, search, role_name, is_cancel)
 
 
 @router.get("/{user_id}", response_model=DataResponse[AccountResponse])
@@ -56,3 +57,12 @@ async def update_account(
     ctrl: AccountController = Depends(get_account_controller),
 ):
     return await ctrl.update_account(user_id, request)
+
+
+@router.post("/{user_id}/reset-password", response_model=DataResponse[None])
+async def reset_password(
+    user_id: int,
+    _current_user: User = Depends(require_roles("admin")),
+    ctrl: AccountController = Depends(get_account_controller),
+):
+    return await ctrl.reset_password(user_id)

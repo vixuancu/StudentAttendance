@@ -14,6 +14,7 @@ class IAccountService(ABC):
         pagination: PaginationParams,
         search: Optional[str] = None,
         role_name: Optional[str] = None,
+        is_cancel: Optional[bool] = None,
     ) -> tuple[list[User], int]:
         pass
 
@@ -27,4 +28,8 @@ class IAccountService(ABC):
 
     @abstractmethod
     async def get_account_by_id(self, user_id: int) -> User:
+        pass
+
+    @abstractmethod
+    async def reset_password(self, user_id: int) -> None:
         pass
