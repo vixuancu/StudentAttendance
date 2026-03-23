@@ -13,6 +13,7 @@ from src.db.models.classroom import Classroom
 from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
 from src.db.models.student import Student
+from src.db.models.student_face import StudentFace
 from src.db.models.enrollment import Enrollment
 from src.db.models.class_session import ClassSession
 from src.db.models.attendance import Attendance
@@ -33,6 +34,7 @@ __all__ = [
     "Course",
     "CourseSection",
     "Student",
+    "StudentFace",
     "Enrollment",
     "ClassSession",
     "Attendance",
