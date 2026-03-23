@@ -49,6 +49,14 @@ class UserRepository(BaseRepository, IUserRepository):
         result = await self.db.execute(select(Role).where(Role.id == role_id))
         return result.scalar_one_or_none()
 
+    async def get_all_roles(self) -> list[Role]:
+        result = await self.db.execute(
+            select(Role)
+            .where(Role.is_cancel.is_(False))
+            .order_by(Role.id.asc())
+        )
+        return list(result.scalars().all())
+
     async def get_all_users(
         self,
         skip: int = 0,

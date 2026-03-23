@@ -7,10 +7,18 @@ from src.db.models.user import User
 from src.deps import get_account_controller
 from src.dto.common import DataResponse, ListResponse, PaginationParams
 from src.dto.request.account_request import AccountCreateRequest, AccountUpdateRequest
-from src.dto.response.account_response import AccountResponse
+from src.dto.response.account_response import AccountResponse, RoleOptionResponse
 from src.middleware.auth import require_roles
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
+
+
+@router.get("/roles", response_model=ListResponse[RoleOptionResponse])
+async def get_roles(
+    _current_user: User = Depends(require_roles("admin")),
+    ctrl: AccountController = Depends(get_account_controller),
+):
+    return await ctrl.list_roles()
 
 
 @router.get("", response_model=ListResponse[AccountResponse])

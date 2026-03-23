@@ -3,7 +3,7 @@ from typing import Optional
 
 from src.dto.common import DataResponse, ListResponse, PaginationParams
 from src.dto.request.account_request import AccountCreateRequest, AccountUpdateRequest
-from src.dto.response.account_response import AccountResponse
+from src.dto.response.account_response import AccountResponse, RoleOptionResponse
 from src.services.interfaces.i_account_service import IAccountService
 
 
@@ -81,3 +81,13 @@ class AccountController:
     async def reset_password(self, user_id: int) -> DataResponse[None]:
         await self.service.reset_password(user_id)
         return DataResponse(message="Đặt lại mật khẩu thành công")
+
+    async def list_roles(self) -> ListResponse[RoleOptionResponse]:
+        roles = await self.service.list_roles()
+        return ListResponse(
+            data=[RoleOptionResponse(id=role.id, role_name=role.role_name) for role in roles],
+            total=len(roles),
+            page=1,
+            page_size=len(roles),
+            total_pages=1,
+        )
