@@ -1,7 +1,19 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from src.db.models.user import User
-from src.dto.request.auth_request import ChangePasswordRequest, LoginRequest
+from src.dto.request.auth_request import (
+    ChangePasswordRequest,
+    ForgotPasswordConfirmRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+)
+
+
+@dataclass
+class ForgotPasswordDispatch:
+    email: str
+    otp: str
 
 
 class IAuthService(ABC):
@@ -25,4 +37,20 @@ class IAuthService(ABC):
         self, user_id: int, request: ChangePasswordRequest
     ) -> None:
         """Đổi mật khẩu user hiện tại."""
+        pass
+
+    @abstractmethod
+    async def request_forgot_password(
+        self,
+        request: ForgotPasswordRequest,
+    ) -> ForgotPasswordDispatch:
+        """Kiểm tra email tồn tại, tạo OTP và trả payload để gửi mail nền."""
+        pass
+
+    @abstractmethod
+    async def confirm_forgot_password(
+        self,
+        request: ForgotPasswordConfirmRequest,
+    ) -> None:
+        """Xác thực OTP và cập nhật mật khẩu mới."""
         pass

@@ -4,7 +4,12 @@ Nhận request → gọi Service → map Response DTO.
 """
 
 from src.dto.common import DataResponse
-from src.dto.request.auth_request import ChangePasswordRequest, LoginRequest
+from src.dto.request.auth_request import (
+    ChangePasswordRequest,
+    ForgotPasswordConfirmRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+)
 from src.dto.response.auth_response import LoginResponse, TokenResponse, UserInfoResponse
 from src.services.interfaces.i_auth_service import IAuthService
 
@@ -59,3 +64,16 @@ class AuthController:
     ) -> DataResponse[None]:
         await self.service.change_password(user_id, request)
         return DataResponse(message="Đổi mật khẩu thành công")
+
+    async def request_forgot_password(
+        self,
+        request: ForgotPasswordRequest,
+    ):
+        return await self.service.request_forgot_password(request)
+
+    async def confirm_forgot_password(
+        self,
+        request: ForgotPasswordConfirmRequest,
+    ) -> DataResponse[None]:
+        await self.service.confirm_forgot_password(request)
+        return DataResponse(message="Tạo mật khẩu mới thành công")

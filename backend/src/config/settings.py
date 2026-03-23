@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     secret_key: str = "your-secret-key"
     access_token_expire_minutes: int = 3600
 
+    # ── Forgot password / Mail ──────────────────────────────
+    forgot_password_otp_ttl_seconds: int = 300
+    mail_provider_type: str = "mailtrap"
+    mailtrap_api_key: str = ""
+    mailtrap_sender_email: str = ""
+    mailtrap_sender_name: str = "StudentAttendance"
+    mailtrap_sandbox: bool = True
+    mailtrap_inbox_id: int | None = None
+
     # ── CORS ────────────────────────────────────────────────
     cors_origins: list[str] = ["http://localhost:3001", "http://localhost:5173"]
 

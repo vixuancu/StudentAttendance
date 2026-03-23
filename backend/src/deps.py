@@ -42,6 +42,8 @@ from src.repository.user_repo import UserRepository
 
 from src.services.interfaces.i_auth_service import IAuthService
 from src.services.auth_service import AuthService
+from src.services.interfaces.i_mail_provider import IMailProvider
+from src.services.mail_provider import create_mail_provider
 
 from src.controller.auth_controller import AuthController
 from src.controller.account_controller import AccountController
@@ -65,6 +67,10 @@ def get_auth_controller(
     service: IAuthService = Depends(get_auth_service),
 ) -> AuthController:
     return AuthController(service)
+
+
+def get_mail_provider() -> IMailProvider:
+    return create_mail_provider()
 
 
 # ===================== ACCOUNT ===================== #
