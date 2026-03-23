@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from src.db.models.role import Role
 from src.db.models.user import User
 from src.dto.common import PaginationParams
 from src.dto.request.account_request import AccountCreateRequest, AccountUpdateRequest
@@ -32,4 +33,8 @@ class IAccountService(ABC):
 
     @abstractmethod
     async def reset_password(self, user_id: int) -> None:
+        pass
+
+    @abstractmethod
+    async def list_roles(self) -> list[Role]:
         pass
