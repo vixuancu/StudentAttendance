@@ -4,11 +4,19 @@ KHÔNG import FastAPI/HTTP. Chỉ throw BusinessException.
 """
 
 import logging
+import random
 
 from src.db.models.user import User
-from src.dto.request.auth_request import ChangePasswordRequest, LoginRequest
+from src.config.settings import settings
+from src.dto.request.auth_request import (
+    ChangePasswordRequest,
+    ForgotPasswordConfirmRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+)
 from src.repository.interfaces.i_user_repo import IUserRepository
-from src.services.interfaces.i_auth_service import IAuthService
+from src.services.interfaces.i_auth_service import ForgotPasswordDispatch, IAuthService
+from src.services.otp_cache import otp_memory_cache
 from src.utils.exceptions import UnauthorizedException, ValidationException
 from src.utils.security import create_access_token, hash_password, verify_password
 
@@ -73,3 +81,41 @@ class AuthService(IAuthService):
         new_hashed_password = hash_password(request.new_password)
         await self.user_repo.update(user, {"password": new_hashed_password})
         self.logger.info("User '%s' changed password successfully", user.username)
+
+    async def request_forgot_password(
+        self,
+        request: ForgotPasswordRequest,
+    ) -> ForgotPasswordDispatch:
+        email = request.email.strip().lower()
+        user = await self.user_repo.get_by_email(email)
+        if user is None:
+            raise ValidationException("Email không tồn tại trong hệ thống", field="email")
+
+        otp = f"{random.randint(0, 999999):06d}"
+        otp_memory_cache.set(
+            email=email,
+            otp=otp,
+            ttl_seconds=settings.forgot_password_otp_ttl_seconds,
+        )
+
+        self.logger.info("Created forgot-password OTP for email=%s", email)
+        return ForgotPasswordDispatch(email=email, otp=otp)
+
+    async def confirm_forgot_password(
+        self,
+        request: ForgotPasswordConfirmRequest,
+    ) -> None:
+        email = request.email.strip().lower()
+        user = await self.user_repo.get_by_email(email)
+        if user is None:
+            raise ValidationException("Email không tồn tại trong hệ thống", field="email")
+
+        is_valid_otp = otp_memory_cache.verify(email=email, otp=request.otp)
+        if not is_valid_otp:
+            raise ValidationException(
+                "Mã xác thực không đúng hoặc mật khẩu mới không hợp lệ",
+                field="otp",
+            )
+
+        await self.user_repo.update(user, {"password": hash_password(request.new_password)})
+        self.logger.info("Forgot-password confirm success for email=%s", email)
