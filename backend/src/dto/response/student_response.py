@@ -26,3 +26,17 @@ class AdministrativeClassResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class StudentImportErrorResponse(BaseModel):
+    row: int
+    field: str
+    student_code: Optional[str] = None
+    message: str
+
+
+class StudentImportResultResponse(BaseModel):
+    total_rows: int
+    imported_count: int
+    failed_count: int
+    errors: list[StudentImportErrorResponse] = []

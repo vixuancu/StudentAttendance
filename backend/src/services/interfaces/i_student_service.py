@@ -5,6 +5,7 @@ from src.db.models.administrative_class import AdministrativeClass
 from src.db.models.student import Student
 from src.dto.common import PaginationParams
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
+from src.dto.response.student_response import StudentImportResultResponse
 
 
 class IStudentService(ABC):
@@ -41,4 +42,16 @@ class IStudentService(ABC):
 
     @abstractmethod
     async def hard_delete(self, id: int) -> bool:
+        pass
+
+    @abstractmethod
+    async def import_students_from_excel(
+        self,
+        file_content: bytes,
+        filename: str | None = None,
+    ) -> StudentImportResultResponse:
+        pass
+
+    @abstractmethod
+    def build_import_template(self) -> bytes:
         pass

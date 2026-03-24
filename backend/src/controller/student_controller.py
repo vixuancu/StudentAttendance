@@ -7,7 +7,11 @@ from typing import Optional
 
 from src.dto.common import DataResponse, ListResponse, PaginationParams
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
-from src.dto.response.student_response import AdministrativeClassResponse, StudentResponse
+from src.dto.response.student_response import (
+    AdministrativeClassResponse,
+    StudentImportResultResponse,
+    StudentResponse,
+)
 from src.services.interfaces.i_student_service import IStudentService
 
 
@@ -92,4 +96,18 @@ class StudentController:
             page=1,
             page_size=len(classes),
             total_pages=1,
+        )
+
+    async def import_students(
+        self,
+        file_content: bytes,
+        filename: str | None,
+    ) -> DataResponse[StudentImportResultResponse]:
+        result = await self.service.import_students_from_excel(
+            file_content=file_content,
+            filename=filename,
+        )
+        return DataResponse(
+            data=result,
+            message="Import sinh viên hoàn tất",
         )

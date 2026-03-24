@@ -51,3 +51,7 @@ class IStudentRepository(ABC):
     @abstractmethod
     async def count_faces_by_student_ids(self, student_ids: List[int]) -> dict[int, int]:
         pass
+
+    @abstractmethod
+    async def get_existing_student_codes_ci(self, codes: List[str]) -> set[str]:
+        pass

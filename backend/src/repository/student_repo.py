@@ -67,3 +67,13 @@ class StudentRepository(BaseRepository, IStudentRepository):
         )
         rows = result.all()
         return {int(student_id): int(total) for student_id, total in rows}
+
+    async def get_existing_student_codes_ci(self, codes: list[str]) -> set[str]:
+        normalized = [code.strip().lower() for code in codes if code and code.strip()]
+        if not normalized:
+            return set()
+
+        result = await self.db.execute(
+            select(Student.student_code).where(func.lower(Student.student_code).in_(normalized))
+        )
+        return {str(code).strip().lower() for code in result.scalars().all()}

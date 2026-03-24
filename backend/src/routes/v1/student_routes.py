@@ -4,7 +4,8 @@ Student Routes
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from src.controller.student_controller import StudentController
 from src.controller.student_face_controller import StudentFaceController
@@ -14,10 +15,39 @@ from src.dto.common import DataResponse, ListResponse
 from src.dto.request.student_face_request import StudentFaceCreateRequest
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
 from src.dto.response.student_face_response import StudentFaceResponse
-from src.dto.response.student_response import AdministrativeClassResponse, StudentResponse
+from src.dto.response.student_response import (
+    AdministrativeClassResponse,
+    StudentImportResultResponse,
+    StudentResponse,
+)
 from src.middleware.auth import require_roles
 
 router = APIRouter(prefix="/students", tags=["Students"])
+
+
+@router.get("/import/template")
+async def download_import_template(
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentController = Depends(get_student_controller),
+):
+    content = ctrl.service.build_import_template()
+    return StreamingResponse(
+        iter([content]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="student_import_template.xlsx"',
+        },
+    )
+
+
+@router.post("/import", response_model=DataResponse[StudentImportResultResponse])
+async def import_students(
+    file: UploadFile = File(..., description="File Excel .xlsx"),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentController = Depends(get_student_controller),
+):
+    content = await file.read()
+    return await ctrl.import_students(file_content=content, filename=file.filename)
 
 
 @router.get("", response_model=ListResponse[StudentResponse])
