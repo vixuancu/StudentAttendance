@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
+
+from src.db.models.administrative_class import AdministrativeClass
 from src.db.models.student import Student
 
 
@@ -32,4 +34,20 @@ class IStudentRepository(ABC):
 
     @abstractmethod
     async def delete(self, id: int) -> bool:
+        pass
+
+    @abstractmethod
+    async def get_administrative_class_by_id(self, class_id: int) -> Optional[AdministrativeClass]:
+        pass
+
+    @abstractmethod
+    async def get_all_administrative_classes(self) -> List[AdministrativeClass]:
+        pass
+
+    @abstractmethod
+    async def get_by_student_code(self, student_code: str) -> Optional[Student]:
+        pass
+
+    @abstractmethod
+    async def count_faces_by_student_ids(self, student_ids: List[int]) -> dict[int, int]:
         pass

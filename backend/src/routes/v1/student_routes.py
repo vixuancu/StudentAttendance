@@ -7,11 +7,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 
 from src.controller.student_controller import StudentController
+from src.controller.student_face_controller import StudentFaceController
 from src.db.models.user import User
-from src.deps import get_student_controller
+from src.deps import get_student_controller, get_student_face_controller
 from src.dto.common import DataResponse, ListResponse
+from src.dto.request.student_face_request import StudentFaceCreateRequest
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
-from src.dto.response.student_response import StudentResponse
+from src.dto.response.student_face_response import StudentFaceResponse
+from src.dto.response.student_response import AdministrativeClassResponse, StudentResponse
 from src.middleware.auth import require_roles
 
 router = APIRouter(prefix="/students", tags=["Students"])
@@ -21,14 +24,23 @@ router = APIRouter(prefix="/students", tags=["Students"])
 async def get_students(
     page: int = Query(1, ge=1, description="Số trang"),
     page_size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
-    search: Optional[str] = Query(None, description="Tìm theo tên"),
-    administrative_class: Optional[str] = Query(None, description="Lọc theo lớp hành chính"),
+    search: Optional[str] = Query(None, description="Tìm theo tên hoặc mã sinh viên"),
+    administrative_class_id: Optional[int] = Query(None, description="Lọc theo lớp hành chính"),
+    is_cancel: Optional[bool] = Query(None, description="Lọc theo trạng thái khóa"),
     _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
     from src.dto.common import PaginationParams
     pagination = PaginationParams(page=page, page_size=page_size)
-    return await ctrl.get_students(pagination, search, administrative_class)
+    return await ctrl.get_students(pagination, search, administrative_class_id, is_cancel)
+
+
+@router.get("/administrative-classes", response_model=ListResponse[AdministrativeClassResponse])
+async def get_administrative_classes(
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentController = Depends(get_student_controller),
+):
+    return await ctrl.get_administrative_classes()
 
 
 @router.get("/{student_id}", response_model=DataResponse[StudentResponse])
@@ -53,7 +65,7 @@ async def create_student(
     return await ctrl.create_student(request)
 
 
-@router.put("/{student_id}", response_model=DataResponse[StudentResponse])
+@router.patch("/{student_id}", response_model=DataResponse[StudentResponse])
 async def update_student(
     student_id: int,
     request: StudentUpdateRequest,
@@ -66,7 +78,39 @@ async def update_student(
 @router.delete("/{student_id}", response_model=DataResponse)
 async def delete_student(
     student_id: int,
+    hard: bool = Query(False, description="true để xóa cứng"),
     _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
+    if hard:
+        return await ctrl.hard_delete_student(student_id)
     return await ctrl.delete_student(student_id)
+
+
+@router.get("/{student_id}/faces", response_model=ListResponse[StudentFaceResponse])
+async def get_student_faces(
+    student_id: int,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentFaceController = Depends(get_student_face_controller),
+):
+    return await ctrl.get_faces(student_id)
+
+
+@router.post("/{student_id}/faces", response_model=DataResponse[StudentFaceResponse])
+async def add_student_face(
+    student_id: int,
+    request: StudentFaceCreateRequest,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentFaceController = Depends(get_student_face_controller),
+):
+    return await ctrl.add_face(student_id, request)
+
+
+@router.delete("/{student_id}/faces/{face_id}", response_model=DataResponse[None])
+async def delete_student_face(
+    student_id: int,
+    face_id: int,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentFaceController = Depends(get_student_face_controller),
+):
+    return await ctrl.delete_face(student_id, face_id)

@@ -14,6 +14,7 @@ class AccountController:
 
     @staticmethod
     def _to_response_model(user) -> AccountResponse:
+        role = user.__dict__.get("role")
         return AccountResponse(
             id=user.id,
             username=user.username,
@@ -22,7 +23,7 @@ class AccountController:
             gender=user.gender,
             birth_of_date=user.birth_of_date,
             role_id=user.role_id,
-            role_name=user.role.role_name if user.role else None,
+            role_name=role.role_name if role else None,
             is_cancel=user.is_cancel,
             created_at=user.created_at,
             updated_at=user.updated_at,

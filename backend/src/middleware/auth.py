@@ -67,7 +67,8 @@ def require_roles(*allowed_role_names: str):
     async def _role_checker(
         current_user: User = Depends(get_current_user),
     ) -> User:
-        user_role_name = current_user.role.role_name if current_user.role else None
+        role = current_user.__dict__.get("role")
+        user_role_name = role.role_name if role else None
         if user_role_name not in allowed_role_names:
             role_names = ", ".join(allowed_role_names)
             logger.warning(

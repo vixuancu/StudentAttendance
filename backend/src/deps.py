@@ -11,11 +11,16 @@ from src.db.session import get_db
 # ===================== STUDENT ===================== #
 from src.repository.interfaces.i_student_repo import IStudentRepository
 from src.repository.student_repo import StudentRepository
+from src.repository.interfaces.i_student_face_repo import IStudentFaceRepository
+from src.repository.student_face_repo import StudentFaceRepository
 
 from src.services.interfaces.i_student_service import IStudentService
 from src.services.student_service import StudentService
+from src.services.interfaces.i_student_face_service import IStudentFaceService
+from src.services.student_face_service import StudentFaceService
 
 from src.controller.student_controller import StudentController
+from src.controller.student_face_controller import StudentFaceController
 
 
 def get_student_repo(
@@ -34,6 +39,25 @@ def get_student_controller(
     service: IStudentService = Depends(get_student_service),
 ) -> StudentController:
     return StudentController(service)
+
+
+def get_student_face_repo(
+    db: AsyncSession = Depends(get_db),
+) -> IStudentFaceRepository:
+    return StudentFaceRepository(db)
+
+
+def get_student_face_service(
+    student_repo: IStudentRepository = Depends(get_student_repo),
+    face_repo: IStudentFaceRepository = Depends(get_student_face_repo),
+) -> IStudentFaceService:
+    return StudentFaceService(student_repo, face_repo)
+
+
+def get_student_face_controller(
+    service: IStudentFaceService = Depends(get_student_face_service),
+) -> StudentFaceController:
+    return StudentFaceController(service)
 
 
 # ===================== AUTH ===================== #
