@@ -15,12 +15,17 @@ class Classroom(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     class_name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    camera_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("cameras.id"))
     is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now())
-    updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[Optional[object]] = mapped_column(
+        DateTime(timezone=False), server_default=func.now()
+    )
+    updated_at: Mapped[Optional[object]] = mapped_column(
+        DateTime(timezone=False), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
-    camera: Mapped[Optional["Camera"]] = relationship(back_populates="classrooms")
+    camera: Mapped[Optional["Camera"]] = relationship(
+        back_populates="classrooms", uselist=False
+    )
     course_sections: Mapped[list["CourseSection"]] = relationship(back_populates="room")
     class_sessions: Mapped[list["ClassSession"]] = relationship(back_populates="room")

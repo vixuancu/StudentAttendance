@@ -1,26 +1,25 @@
+import time
 import logging
+import asyncio
 from typing import Optional
 
 from src.db.models.camera import Camera
 from src.dto.common import PaginationParams
-from src.dto.request.account_request import AccountCreateRequest, AccountUpdateRequest
 from src.repository.interfaces.i_camera_repo import ICameraRepository
+from src.repository.interfaces.i_classroom_repo import IClassroomRepository
 from src.services.interfaces.i_camera_service import ICameraService
-from src.utils.exceptions import (
-    AlreadyExistsException,
-    NotFoundException,
-    ValidationException,
-)
 from src.utils.exception import NotFound, AlreadyExists
-from src.utils.security import hash_password
 from src.constant.error_code import ERROR_CODES
 
 
 class CameraService(ICameraService):
     logger = logging.getLogger(__name__)
 
-    def __init__(self, camera_repo: ICameraRepository):
+    def __init__(
+        self, camera_repo: ICameraRepository, classroom_repo: IClassroomRepository
+    ):
         self.camera_repo = camera_repo
+        self.classroom_repo = classroom_repo
 
     async def get_cameras(
         self, pagination: PaginationParams, camera_name: Optional[str] = None
@@ -40,52 +39,137 @@ class CameraService(ICameraService):
         return camera
 
     async def create_camera(self, request) -> Camera:
-        try:
-            data = request.model_dump()
+        data = request.model_dump()
 
-            exist = await self.camera_repo.get_camera_by_ip(data["ip_address"])
+        results = await asyncio.gather(
+            self.camera_repo.get_camera_by_name(data["camera_name"]),
+            self.camera_repo.get_camera_by_ip(data["ip_address"]),
+            self.classroom_repo.get_classroom_by_id(data["classroom_id"]),
+            self.camera_repo.get_active_camera_by_classroom(data["classroom_id"]),
+        )
 
-            if exist:
-                raise AlreadyExists(ERROR_CODES.CAMERA.IP_ADDRESS_IS_EXISTED)
+        existing_name, existing_ip, classroom, camera_in_room = results
 
-            camera = await self.camera_repo.create(data)
-            return camera
-        except Exception as e:
-            raise e
+        if existing_name:
+            raise AlreadyExists(ERROR_CODES.CAMERA.CAMERA_NAME_IS_EXISTED)
+        if existing_ip:
+            raise AlreadyExists(ERROR_CODES.CAMERA.IP_ADDRESS_IS_EXISTED)
+        if not classroom:
+            raise NotFound(ERROR_CODES.CLASSROOM.CLASSROOM_NOT_FOUND)
+        if camera_in_room:
+            raise AlreadyExists(ERROR_CODES.CAMERA.CLASSROOM_ALREADY_HAS_CAMERA)
 
-    async def update_camera(self, id, request) -> Camera:
-        try:
-            camera = await self.camera_repo.get_camera_by_id(id)
+        camera = await self.camera_repo.create(data)
+        return camera
 
-            if not camera:
-                raise NotFound(ERROR_CODES.CAMERA.CAMERA_NOT_FOUND)
+        # async def update_camera(self, id: int, request) -> Camera:
+        camera = await self.camera_repo.get_camera_by_id(id)
+        if not camera:
+            raise NotFound(ERROR_CODES.CAMERA.CAMERA_NOT_FOUND)
 
-            data = request.model_dump(exclude_unset=True)
+        data = request.model_dump(exclude_unset=True)
 
-            new_ip = data.get("ip_address")
-            if new_ip and new_ip != camera.ip_address:
-                existing_camera = await self.camera_repo.get_camera_by_ip(new_ip)
-                if existing_camera:
-                    raise AlreadyExists(ERROR_CODES.CAMERA.IP_ADDRESS_IS_EXISTED)
+        new_name = data.get("camera_name")
+        new_ip = data.get("ip_address")
+        new_room_id = data.get("classroom_id")
 
-                data = request.model_dump(exclude_unset=True)
-                for key, value in data.items():
-                    setattr(camera, key, value)
+        checks = []
+        if new_name and new_name != camera.camera_name:
+            checks.append(self.camera_repo.get_camera_by_name(new_name))
+        else:
+            checks.append(asyncio.sleep(0, result=None))
 
-            await self.camera_repo.db.commit()
-            await self.camera_repo.db.refresh(camera)
+        if new_ip and new_ip != camera.ip_address:
+            checks.append(self.camera_repo.get_camera_by_ip(new_ip))
+        else:
+            checks.append(asyncio.sleep(0, result=None))
 
-            return camera
-        except Exception as e:
-            raise e
+        if new_room_id and new_room_id != camera.classroom_id:
+            checks.append(self.classroom_repo.get_classroom_by_id(new_room_id))
+            checks.append(self.camera_repo.get_active_camera_by_classroom(new_room_id))
+        else:
+            checks.append(asyncio.sleep(0, result=None))
+            checks.append(asyncio.sleep(0, result=None))
+
+        results = await asyncio.gather(*checks)
+        existing_name, existing_ip, classroom, camera_in_room = results
+
+        if existing_name:
+            raise AlreadyExists(ERROR_CODES.CAMERA.CAMERA_NAME_IS_EXISTED)
+        if existing_ip:
+            raise AlreadyExists(ERROR_CODES.CAMERA.IP_ADDRESS_IS_EXISTED)
+        if new_room_id and new_room_id != camera.classroom_id:
+            if not classroom:
+                raise NotFound(ERROR_CODES.CLASSROOM.CLASSROOM_NOT_FOUND)
+            if camera_in_room:
+                raise AlreadyExists(ERROR_CODES.CAMERA.CLASSROOM_ALREADY_HAS_CAMERA)
+
+        for key, value in data.items():
+            setattr(camera, key, value)
+
+        await self.camera_repo.db.commit()
+        await self.camera_repo.db.refresh(camera)
+
+        return camera
+
+    async def update_camera(self, id: int, request) -> Camera:
+        start_total = time.perf_counter()
+
+        camera = await self.camera_repo.get_camera_by_id(id)
+        if not camera:
+            raise NotFound(ERROR_CODES.CAMERA.CAMERA_NOT_FOUND)
+
+        data = request.model_dump(exclude_unset=True)
+
+        new_name = data.get("camera_name")
+        new_ip = data.get("ip_address")
+        new_room_id = data.get("classroom_id")
+
+        checks = []
+
+        if new_name and new_name != camera.camera_name:
+            checks.append(self.camera_repo.get_camera_by_name(new_name))
+        else:
+            checks.append(asyncio.sleep(0, result=None))
+
+        if new_ip and new_ip != camera.ip_address:
+            checks.append(self.camera_repo.get_camera_by_ip(new_ip))
+        else:
+            checks.append(asyncio.sleep(0, result=None))
+
+        if new_room_id and new_room_id != camera.classroom_id:
+            checks.append(self.classroom_repo.get_classroom_by_id(new_room_id))
+            checks.append(self.camera_repo.get_active_camera_by_classroom(new_room_id))
+        else:
+            checks.append(asyncio.sleep(0, result=None))
+            checks.append(asyncio.sleep(0, result=None))
+
+        results = await asyncio.gather(*checks)
+
+        existing_name, existing_ip, classroom, camera_in_room = results
+
+        if existing_name:
+            raise AlreadyExists(ERROR_CODES.CAMERA.CAMERA_NAME_IS_EXISTED)
+        if existing_ip:
+            raise AlreadyExists(ERROR_CODES.CAMERA.IP_ADDRESS_IS_EXISTED)
+
+        if new_room_id and new_room_id != camera.classroom_id:
+            if not classroom:
+                raise NotFound(ERROR_CODES.CLASSROOM.CLASSROOM_NOT_FOUND)
+            if camera_in_room:
+                raise AlreadyExists(ERROR_CODES.CAMERA.CLASSROOM_ALREADY_HAS_CAMERA)
+
+        for key, value in data.items():
+            setattr(camera, key, value)
+
+        await self.camera_repo.db.commit()
+        # await self.camera_repo.db.refresh(camera)
+        return camera
 
     async def delete_camera(self, id: int) -> Camera:
-        try:
-            camera = await self.camera_repo.delete(id)
+        camera = await self.camera_repo.delete(id)
 
-            if not camera:
-                raise NotFound(ERROR_CODES.CAMERA.CAMERA_NOT_FOUND)
+        if not camera:
+            raise NotFound(ERROR_CODES.CAMERA.CAMERA_NOT_FOUND)
 
-            return camera
-        except Exception as e:
-            raise e
+        return camera

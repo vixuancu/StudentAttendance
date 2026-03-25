@@ -17,9 +17,15 @@ class CourseSection(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
-    room_id: Mapped[int] = mapped_column(Integer, ForeignKey("classrooms.id"), nullable=False)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    course_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("courses.id"), nullable=False
+    )
+    room_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("classrooms.id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
     day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)
     start_date: Mapped[object] = mapped_column(DateTime(timezone=False), nullable=False)
     end_date: Mapped[object] = mapped_column(DateTime(timezone=False), nullable=False)
@@ -28,12 +34,20 @@ class CourseSection(Base):
     start_time: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False))
     end_time: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False))
     is_cancel: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now())
-    updated_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[Optional[object]] = mapped_column(
+        DateTime(timezone=False), server_default=func.now()
+    )
+    updated_at: Mapped[Optional[object]] = mapped_column(
+        DateTime(timezone=False), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     course: Mapped["Course"] = relationship(back_populates="course_sections")
     room: Mapped["Classroom"] = relationship(back_populates="course_sections")
     user: Mapped["User"] = relationship(back_populates="course_sections")
-    enrollments: Mapped[list["Enrollment"]] = relationship(back_populates="course_section")
-    class_sessions: Mapped[list["ClassSession"]] = relationship(back_populates="course_section")
+    enrollments: Mapped[list["Enrollment"]] = relationship(
+        back_populates="course_section"
+    )
+    class_sessions: Mapped[list["ClassSession"]] = relationship(
+        back_populates="course_section"
+    )
