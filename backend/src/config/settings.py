@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     debug: bool = True
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
 
+    # ── Response compression (local/prod) ───────────────────
+    gzip_enabled: bool = True
+    gzip_minimum_size: int = 1024
+    gzip_compresslevel: int = 5
+
     # ── Database ────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://root:123456@localhost:5432/student_attendance"
 

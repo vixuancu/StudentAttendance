@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -64,6 +65,17 @@ app = FastAPI(
 # Thứ tự add middleware: sau cùng add = chạy ĐẦU TIÊN
 setup_cors(app)
 app.add_middleware(RequestLoggingMiddleware)
+if settings.gzip_enabled:
+    app.add_middleware(
+        GZipMiddleware,
+        minimum_size=settings.gzip_minimum_size,
+        compresslevel=settings.gzip_compresslevel,
+    )
+    logger.info(
+        "🗜️ GZip enabled (minimum_size=%dB, level=%d)",
+        settings.gzip_minimum_size,
+        settings.gzip_compresslevel,
+    )
 
 
 # ===================== BUSINESS EXCEPTION HANDLERS ====================== #
