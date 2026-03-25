@@ -53,6 +53,11 @@ Bat buoc sua it nhat:
 - `DATABASE_URL`
 - `SECRET_KEY`
 
+Tuy chon toi uu response:
+- `GZIP_ENABLED=true`
+- `GZIP_MINIMUM_SIZE=1024`
+- `GZIP_COMPRESSLEVEL=5`
+
 ### Chay server
 
 ```bash

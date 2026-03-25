@@ -21,8 +21,8 @@ class AuthController:
     async def login(self, request: LoginRequest) -> DataResponse[LoginResponse]:
         user, access_token = await self.service.login(request)
 
-        # Lấy role_name từ relationship nếu có
-        role_name = user.role.role_name if user.role else None
+        role = user.__dict__.get("role")
+        role_name = role.role_name if role else None
 
         login_data = LoginResponse(
             token=TokenResponse(access_token=access_token),
@@ -44,7 +44,8 @@ class AuthController:
     async def me(self, user_id: int) -> DataResponse[UserInfoResponse]:
         user = await self.service.get_current_user(user_id)
 
-        role_name = user.role.role_name if user.role else None
+        role = user.__dict__.get("role")
+        role_name = role.role_name if role else None
         user_data = UserInfoResponse(
             id=user.id,
             username=user.username,
