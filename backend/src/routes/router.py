@@ -4,7 +4,13 @@ Main Router – include tất cả route modules v1.
 
 from fastapi import APIRouter
 
-from src.routes.v1 import account_routes, auth_routes, student_routes, camera_routes
+from src.routes.v1 import (
+    account_routes,
+    auth_routes,
+    student_routes,
+    camera_routes,
+    classrooms_routes,
+)
 
 # from src.routes.v1 import user_routes
 # from src.routes.v1 import course_routes
@@ -16,6 +22,7 @@ api_router.include_router(auth_routes.router)
 api_router.include_router(student_routes.router)
 api_router.include_router(account_routes.router)
 api_router.include_router(camera_routes.router)
+api_router.include_router(classrooms_routes.router)
 # api_router.include_router(user_routes.router)
 # api_router.include_router(course_routes.router)
 # api_router.include_router(attendance_routes.router)

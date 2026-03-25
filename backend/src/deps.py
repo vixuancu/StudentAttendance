@@ -85,23 +85,52 @@ def get_account_controller(
 # ===================== CAMERA ===================== #
 from src.repository.interfaces.i_camera_repo import ICameraRepository
 from src.repository.camera_repo import CameraRepository
-
+from src.repository.interfaces.i_classroom_repo import IClassroomRepository
+from src.repository.classroom_repo import ClassroomRepository
 from src.services.interfaces.i_camera_service import ICameraService
 from src.services.camera_service import CameraService
 
 from src.controller.camera_controller import CameraController
 
-def get_camera_repo(
-    db: AsyncSession = Depends(get_db)
-) -> ICameraRepository:
+
+def get_camera_repo(db: AsyncSession = Depends(get_db)) -> ICameraRepository:
     return CameraRepository(db)
+
+
+def get_classroom_repo(db: AsyncSession = Depends(get_db)) -> IClassroomRepository:
+    return ClassroomRepository(db)
+
 
 def get_camera_service(
     camera_repo: ICameraRepository = Depends(get_camera_repo),
+    classroom_repo: IClassroomRepository = Depends(get_classroom_repo),
 ) -> ICameraService:
-    return CameraService(camera_repo)
-    
+    return CameraService(camera_repo, classroom_repo)
+
+
 def get_camera_controller(
     service: ICameraService = Depends(get_camera_service),
 ) -> CameraController:
     return CameraController(service)
+
+
+# ==================== CLASSROOM ==================== #
+
+
+from src.services.interfaces.i_classroom_service import IClassroomService
+from src.services.classroom_service import ClassroomService
+
+from src.controller.classroom_controller import ClassroomController
+
+
+def get_classroom_service(
+    classroom_repo: IClassroomRepository = Depends(get_classroom_repo),
+    camera_repo: ICameraRepository = Depends(get_camera_repo),
+) -> IClassroomService:
+    return ClassroomService(classroom_repo, camera_repo)
+
+
+def get_classroom_controller(
+    service: IClassroomService = Depends(get_classroom_service),
+) -> ClassroomController:
+    return ClassroomController(service)
