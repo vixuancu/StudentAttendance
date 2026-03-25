@@ -90,6 +90,10 @@ class AdministrativeClassController:
             message="Mở khóa lớp hành chính thành công",
         )
 
+    async def hard_delete_class(self, class_id: int) -> DataResponse[None]:
+        await self.service.hard_delete(class_id)
+        return DataResponse(message="Xóa hẳn lớp hành chính thành công")
+
     async def get_stats(self, search: Optional[str] = None) -> DataResponse[AdministrativeClassStatsResponse]:
         stats = await self.service.get_stats(search=search)
         return DataResponse(

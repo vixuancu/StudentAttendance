@@ -42,5 +42,9 @@ class IAdministrativeClassService(ABC):
         pass
 
     @abstractmethod
+    async def hard_delete(self, class_id: int) -> bool:
+        pass
+
+    @abstractmethod
     async def get_stats(self, search: Optional[str] = None) -> AdministrativeClassStatsResponse:
         pass

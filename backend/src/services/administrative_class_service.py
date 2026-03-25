@@ -95,6 +95,16 @@ class AdministrativeClassService(IAdministrativeClassService):
         setattr(updated, "student_count", count)
         return updated
 
+    async def hard_delete(self, class_id: int) -> bool:
+        item = await self.get_by_id(class_id)
+        student_count = await self.repo.count_students_by_class_id(item.id)
+        if student_count > 0:
+            raise ValidationException(
+                "Không thể xóa hẳn lớp hành chính đang có sinh viên",
+                field="class_id",
+            )
+        return await self.repo.delete(item.id)
+
     async def get_stats(self, search: Optional[str] = None) -> AdministrativeClassStatsResponse:
         total = await self.repo.count_classes(search=search, is_cancel=None)
         active_count = await self.repo.count_classes(search=search, is_cancel=False)

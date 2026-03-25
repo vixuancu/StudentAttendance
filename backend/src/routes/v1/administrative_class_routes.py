@@ -78,6 +78,15 @@ async def lock_class(
     return await ctrl.lock_class(class_id)
 
 
+@router.delete("/{class_id}/hard", response_model=DataResponse[None])
+async def hard_delete_class(
+    class_id: int,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: AdministrativeClassController = Depends(get_administrative_class_controller),
+):
+    return await ctrl.hard_delete_class(class_id)
+
+
 @router.post("/{class_id}/unlock", response_model=DataResponse[AdministrativeClassItemResponse])
 async def unlock_class(
     class_id: int,

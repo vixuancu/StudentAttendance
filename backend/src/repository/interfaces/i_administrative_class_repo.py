@@ -37,6 +37,10 @@ class IAdministrativeClassRepository(ABC):
         pass
 
     @abstractmethod
+    async def delete(self, id: int) -> bool:
+        pass
+
+    @abstractmethod
     async def count_students_by_class_ids(self, class_ids: list[int]) -> dict[int, int]:
         pass
 
