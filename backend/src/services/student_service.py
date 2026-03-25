@@ -40,6 +40,7 @@ class _ImportRowCandidate:
 
 class StudentService(IStudentService):
     logger = logging.getLogger(__name__)
+    IMPORT_BATCH_SIZE = 500
 
     HEADER_ALIASES = {
         "student_code": {
@@ -215,6 +216,52 @@ class StudentService(IStudentService):
                 message=message,
             )
         )
+
+    @staticmethod
+    def _is_unique_violation(exc: Exception) -> bool:
+        text = str(exc).lower()
+        return "unique" in text or "duplicate" in text
+
+    async def _insert_import_batch_with_fallback(
+        self,
+        rows: list[tuple[_ImportRowCandidate, dict]],
+        errors: list[StudentImportErrorResponse],
+    ) -> int:
+        if not rows:
+            return 0
+
+        try:
+            await self.repo.bulk_insert([payload for _, payload in rows])
+            return len(rows)
+        except Exception:  # noqa: BLE001
+            self.logger.exception(
+                "Bulk import fallback activated for %d rows",
+                len(rows),
+            )
+
+        inserted = 0
+        for item, payload in rows:
+            try:
+                await self.repo.create(payload)
+                inserted += 1
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(
+                    "Import row failed row=%s code=%s err=%s",
+                    item.row,
+                    item.student_code_raw,
+                    exc,
+                )
+                message = "Mã sinh viên đã tồn tại trong hệ thống"
+                if not self._is_unique_violation(exc):
+                    message = "Không thể lưu bản ghi do lỗi dữ liệu"
+                self._append_import_error(
+                    errors,
+                    item.row,
+                    "student_code",
+                    message,
+                    item.student_code_raw,
+                )
+        return inserted
 
     async def get_by_id(self, id: int) -> Student:
         student = await self.repo.get_by_id(id)
@@ -515,6 +562,7 @@ class StudentService(IStudentService):
         )
 
         imported_count = 0
+        rows_to_insert: list[tuple[_ImportRowCandidate, dict]] = []
         for item in candidates:
             if item.student_code_key in existing_codes:
                 self._append_import_error(
@@ -546,8 +594,12 @@ class StudentService(IStudentService):
                 "is_cancel": False,
             }
 
-            await self.repo.create(payload)
-            imported_count += 1
+            rows_to_insert.append((item, payload))
+
+        if rows_to_insert:
+            for start in range(0, len(rows_to_insert), self.IMPORT_BATCH_SIZE):
+                batch = rows_to_insert[start : start + self.IMPORT_BATCH_SIZE]
+                imported_count += await self._insert_import_batch_with_fallback(batch, errors)
 
         failed_count = len(errors)
         return StudentImportResultResponse(

@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload
 
 from src.db.models.administrative_class import AdministrativeClass
@@ -77,3 +78,8 @@ class StudentRepository(BaseRepository, IStudentRepository):
             select(Student.student_code).where(func.lower(Student.student_code).in_(normalized))
         )
         return {str(code).strip().lower() for code in result.scalars().all()}
+
+    async def bulk_insert(self, rows: list[dict]) -> None:
+        if not rows:
+            return
+        await self.db.execute(pg_insert(Student), rows)

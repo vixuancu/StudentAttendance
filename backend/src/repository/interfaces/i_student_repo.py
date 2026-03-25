@@ -55,3 +55,7 @@ class IStudentRepository(ABC):
     @abstractmethod
     async def get_existing_student_codes_ci(self, codes: List[str]) -> set[str]:
         pass
+
+    @abstractmethod
+    async def bulk_insert(self, rows: List[dict]) -> None:
+        pass
