@@ -24,7 +24,7 @@ class StudentRepository(BaseRepository, IStudentRepository):
         return result.scalar_one_or_none()
 
     async def get_all(self, skip=0, limit=100, filters=None):
-        query = select(Student).options(selectinload(Student.administrative_class))
+        query = select(Student).options(selectinload(Student.administrative_class)).order_by(Student.created_at.asc())
         if filters:
             for f in filters:
                 query = query.where(f)
@@ -83,3 +83,6 @@ class StudentRepository(BaseRepository, IStudentRepository):
         if not rows:
             return
         await self.db.execute(pg_insert(Student), rows)
+
+    async def count_with_filters(self, filters=None) -> int:
+        return await self.count(filters=filters)

@@ -18,6 +18,7 @@ from src.dto.response.student_face_response import StudentFaceResponse
 from src.dto.response.student_response import (
     AdministrativeClassResponse,
     StudentImportResultResponse,
+    StudentStatsResponse,
     StudentResponse,
 )
 from src.middleware.auth import require_roles
@@ -63,6 +64,16 @@ async def get_students(
     from src.dto.common import PaginationParams
     pagination = PaginationParams(page=page, page_size=page_size)
     return await ctrl.get_students(pagination, search, administrative_class_id, is_cancel)
+
+
+@router.get("/stats", response_model=DataResponse[StudentStatsResponse])
+async def get_student_stats(
+    search: Optional[str] = Query(None, description="Tìm theo tên hoặc mã sinh viên"),
+    administrative_class_id: Optional[int] = Query(None, description="Lọc theo lớp hành chính"),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentController = Depends(get_student_controller),
+):
+    return await ctrl.get_student_stats(search=search, administrative_class_id=administrative_class_id)
 
 
 @router.get("/administrative-classes", response_model=ListResponse[AdministrativeClassResponse])

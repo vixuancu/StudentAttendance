@@ -10,6 +10,7 @@ from src.dto.request.student_request import StudentCreateRequest, StudentUpdateR
 from src.dto.response.student_response import (
     AdministrativeClassResponse,
     StudentImportResultResponse,
+    StudentStatsResponse,
     StudentResponse,
 )
 from src.services.interfaces.i_student_service import IStudentService
@@ -60,6 +61,20 @@ class StudentController:
             page=pagination.page,
             page_size=pagination.page_size,
             total_pages=math.ceil(total / pagination.page_size) if total else 0,
+        )
+
+    async def get_student_stats(
+        self,
+        search: Optional[str] = None,
+        administrative_class_id: Optional[int] = None,
+    ) -> DataResponse[StudentStatsResponse]:
+        stats = await self.service.get_student_stats(
+            search=search,
+            administrative_class_id=administrative_class_id,
+        )
+        return DataResponse(
+            data=stats,
+            message="Lấy thống kê sinh viên thành công",
         )
 
     async def create_student(

@@ -21,6 +21,7 @@ from src.dto.request.student_request import StudentCreateRequest, StudentUpdateR
 from src.dto.response.student_response import (
     StudentImportErrorResponse,
     StudentImportResultResponse,
+    StudentStatsResponse,
 )
 from src.repository.interfaces.i_student_repo import IStudentRepository
 from src.services.interfaces.i_student_service import IStudentService
@@ -302,6 +303,34 @@ class StudentService(IStudentService):
             setattr(student, "face_count", face_count_map.get(student.id, 0))
 
         return students, total
+
+    async def get_student_stats(
+        self,
+        search: Optional[str] = None,
+        administrative_class_id: Optional[int] = None,
+    ) -> StudentStatsResponse:
+        base_filters: List[Any] = []
+        if search:
+            keyword = f"%{search.strip()}%"
+            base_filters.append(
+                Student.full_name.ilike(keyword) | Student.student_code.ilike(keyword)
+            )
+        if administrative_class_id:
+            base_filters.append(Student.administrative_class_id == administrative_class_id)
+
+        total = await self.repo.count_with_filters(base_filters)
+        active_count = await self.repo.count_with_filters(
+            [*base_filters, Student.is_cancel.is_(False)]
+        )
+        locked_count = await self.repo.count_with_filters(
+            [*base_filters, Student.is_cancel.is_(True)]
+        )
+
+        return StudentStatsResponse(
+            total=total,
+            active_count=active_count,
+            locked_count=locked_count,
+        )
 
     async def create(self, request: StudentCreateRequest) -> Student:
         student_code = request.student_code.strip()

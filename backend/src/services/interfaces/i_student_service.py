@@ -5,7 +5,7 @@ from src.db.models.administrative_class import AdministrativeClass
 from src.db.models.student import Student
 from src.dto.common import PaginationParams
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
-from src.dto.response.student_response import StudentImportResultResponse
+from src.dto.response.student_response import StudentImportResultResponse, StudentStatsResponse
 
 
 class IStudentService(ABC):
@@ -22,6 +22,14 @@ class IStudentService(ABC):
         administrative_class_id: Optional[int] = None,
         is_cancel: Optional[bool] = None,
     ) -> Tuple[List[Student], int]:
+        pass
+
+    @abstractmethod
+    async def get_student_stats(
+        self,
+        search: Optional[str] = None,
+        administrative_class_id: Optional[int] = None,
+    ) -> StudentStatsResponse:
         pass
 
     @abstractmethod

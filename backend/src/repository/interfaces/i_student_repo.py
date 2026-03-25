@@ -59,3 +59,7 @@ class IStudentRepository(ABC):
     @abstractmethod
     async def bulk_insert(self, rows: List[dict]) -> None:
         pass
+
+    @abstractmethod
+    async def count_with_filters(self, filters: Optional[List[Any]] = None) -> int:
+        pass
