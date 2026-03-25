@@ -19,3 +19,11 @@ class AccountResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RoleOptionResponse(BaseModel):
+    id: int
+    role_name: str
+
+    class Config:
+        from_attributes = True

@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, List
 
+from src.db.models.administrative_class import AdministrativeClass
 from src.db.models.student import Student
 from src.dto.common import PaginationParams
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
+from src.dto.response.student_response import StudentImportResultResponse, StudentStatsResponse
 
 
 class IStudentService(ABC):
@@ -17,8 +19,17 @@ class IStudentService(ABC):
         self,
         pagination: PaginationParams,
         search: Optional[str] = None,
-        administrative_class: Optional[str] = None,
+        administrative_class_id: Optional[int] = None,
+        is_cancel: Optional[bool] = None,
     ) -> Tuple[List[Student], int]:
+        pass
+
+    @abstractmethod
+    async def get_student_stats(
+        self,
+        search: Optional[str] = None,
+        administrative_class_id: Optional[int] = None,
+    ) -> StudentStatsResponse:
         pass
 
     @abstractmethod
@@ -31,4 +42,24 @@ class IStudentService(ABC):
 
     @abstractmethod
     async def delete(self, id: int) -> bool:
+        pass
+
+    @abstractmethod
+    async def get_administrative_class_options(self) -> List[AdministrativeClass]:
+        pass
+
+    @abstractmethod
+    async def hard_delete(self, id: int) -> bool:
+        pass
+
+    @abstractmethod
+    async def import_students_from_excel(
+        self,
+        file_content: bytes,
+        filename: str | None = None,
+    ) -> StudentImportResultResponse:
+        pass
+
+    @abstractmethod
+    def build_import_template(self) -> bytes:
         pass

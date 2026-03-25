@@ -11,11 +11,25 @@ from src.db.session import get_db
 # ===================== STUDENT ===================== #
 from src.repository.interfaces.i_student_repo import IStudentRepository
 from src.repository.student_repo import StudentRepository
+from src.repository.interfaces.i_student_face_repo import IStudentFaceRepository
+from src.repository.student_face_repo import StudentFaceRepository
 
 from src.services.interfaces.i_student_service import IStudentService
 from src.services.student_service import StudentService
+from src.services.interfaces.i_student_face_service import IStudentFaceService
+from src.services.student_face_service import StudentFaceService
 
 from src.controller.student_controller import StudentController
+from src.controller.student_face_controller import StudentFaceController
+from src.repository.interfaces.i_administrative_class_repo import (
+    IAdministrativeClassRepository,
+)
+from src.repository.administrative_class_repo import AdministrativeClassRepository
+from src.services.interfaces.i_administrative_class_service import (
+    IAdministrativeClassService,
+)
+from src.services.administrative_class_service import AdministrativeClassService
+from src.controller.administrative_class_controller import AdministrativeClassController
 
 
 def get_student_repo(
@@ -36,12 +50,51 @@ def get_student_controller(
     return StudentController(service)
 
 
+def get_student_face_repo(
+    db: AsyncSession = Depends(get_db),
+) -> IStudentFaceRepository:
+    return StudentFaceRepository(db)
+
+
+def get_student_face_service(
+    student_repo: IStudentRepository = Depends(get_student_repo),
+    face_repo: IStudentFaceRepository = Depends(get_student_face_repo),
+) -> IStudentFaceService:
+    return StudentFaceService(student_repo, face_repo)
+
+
+def get_student_face_controller(
+    service: IStudentFaceService = Depends(get_student_face_service),
+) -> StudentFaceController:
+    return StudentFaceController(service)
+
+
+def get_administrative_class_repo(
+    db: AsyncSession = Depends(get_db),
+) -> IAdministrativeClassRepository:
+    return AdministrativeClassRepository(db)
+
+
+def get_administrative_class_service(
+    repo: IAdministrativeClassRepository = Depends(get_administrative_class_repo),
+) -> IAdministrativeClassService:
+    return AdministrativeClassService(repo)
+
+
+def get_administrative_class_controller(
+    service: IAdministrativeClassService = Depends(get_administrative_class_service),
+) -> AdministrativeClassController:
+    return AdministrativeClassController(service)
+
+
 # ===================== AUTH ===================== #
 from src.repository.interfaces.i_user_repo import IUserRepository
 from src.repository.user_repo import UserRepository
 
 from src.services.interfaces.i_auth_service import IAuthService
 from src.services.auth_service import AuthService
+from src.services.interfaces.i_mail_provider import IMailProvider
+from src.services.mail_provider import create_mail_provider
 
 from src.controller.auth_controller import AuthController
 from src.controller.account_controller import AccountController
@@ -65,6 +118,10 @@ def get_auth_controller(
     service: IAuthService = Depends(get_auth_service),
 ) -> AuthController:
     return AuthController(service)
+
+
+def get_mail_provider() -> IMailProvider:
+    return create_mail_provider()
 
 
 # ===================== ACCOUNT ===================== #

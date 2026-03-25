@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from src.db.models.role import Role
 from src.db.models.user import User
 from src.dto.common import PaginationParams
 from src.dto.request.account_request import AccountCreateRequest, AccountUpdateRequest
@@ -102,3 +103,6 @@ class AccountService(IAccountService):
             raise NotFoundException(resource="Tài khoản", identifier=user_id)
         await self.user_repo.update(user, {"password": hash_password("123456")})
         self.logger.info("Reset password for account id=%s", user_id)
+
+    async def list_roles(self) -> list[Role]:
+        return await self.user_repo.get_all_roles()

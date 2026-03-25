@@ -34,6 +34,11 @@ class IUserRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_all_roles(self) -> list[Role]:
+        """Lấy danh sách role còn hiệu lực."""
+        pass
+
+    @abstractmethod
     async def get_all_users(
         self,
         skip: int = 0,

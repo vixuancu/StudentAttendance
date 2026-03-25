@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     debug: bool = True
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
 
+    # ── Response compression (local/prod) ───────────────────
+    gzip_enabled: bool = True
+    gzip_minimum_size: int = 1024
+    gzip_compresslevel: int = 5
+
     # ── Database ────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://root:123456@localhost:5432/student_attendance"
 
@@ -22,6 +27,25 @@ class Settings(BaseSettings):
     # ── Security ────────────────────────────────────────────
     secret_key: str = "your-secret-key"
     access_token_expire_minutes: int = 3600
+
+    # ── Forgot password / Mail ──────────────────────────────
+    forgot_password_otp_ttl_seconds: int = 300
+    mail_provider_type: str = "mailtrap"
+    mailtrap_api_key: str = ""
+    mailtrap_sender_email: str = ""
+    mailtrap_sender_name: str = "StudentAttendance"
+    mailtrap_sandbox: bool = True
+    mailtrap_inbox_id: int | None = None
+
+    # SMTP provider (dùng khi MAIL_PROVIDER_TYPE=smtp)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_security: str = "tls"  # tls | ssl | none
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_sender_email: str = ""
+    smtp_sender_name: str = "StudentAttendance"
+    smtp_timeout_seconds: int = 20
 
     # ── CORS ────────────────────────────────────────────────
     cors_origins: list[str] = ["http://localhost:3001", "http://localhost:5173"]
