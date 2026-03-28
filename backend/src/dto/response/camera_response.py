@@ -8,6 +8,7 @@ class CameraDetailResponse(BaseModel):
     id: int
     camera_name: str
     ip_address: str
+    camera_stream_url: str
     camera_status: int
     classroom_id: Optional[int]
     created_at: Optional[datetime] = None
@@ -20,5 +21,6 @@ class CameraResponse(BaseModel):
     id: int = Field(..., serialization_alias="camera_id")
     camera_name: str
     ip_address: str
+    camera_stream_url: str
 
     model_config = {"from_attributes": True, "populate_by_name": True}
