@@ -115,7 +115,9 @@ class CameraService(ICameraService):
     async def update_camera(self, id: int, request) -> Camera:
         start_total = time.perf_counter()
 
+        t0 = time.perf_counter()
         camera = await self.camera_repo.get_camera_by_id(id)
+        t_get_camera_ms = (time.perf_counter() - t0) * 1000
         if not camera:
             raise NotFound(ERROR_CODES.CAMERA.CAMERA_NOT_FOUND)
 
@@ -144,7 +146,9 @@ class CameraService(ICameraService):
             checks.append(asyncio.sleep(0, result=None))
             checks.append(asyncio.sleep(0, result=None))
 
+        t0 = time.perf_counter()
         results = await asyncio.gather(*checks)
+        t_checks_ms = (time.perf_counter() - t0) * 1000
 
         existing_name, existing_ip, classroom, camera_in_room = results
 
@@ -162,8 +166,25 @@ class CameraService(ICameraService):
         for key, value in data.items():
             setattr(camera, key, value)
 
+        t0 = time.perf_counter()
         await self.camera_repo.db.commit()
-        # await self.camera_repo.db.refresh(camera)
+        t_commit_ms = (time.perf_counter() - t0) * 1000
+
+        t0 = time.perf_counter()
+        await self.camera_repo.db.refresh(camera)
+        t_refresh_ms = (time.perf_counter() - t0) * 1000
+
+        t_total_ms = (time.perf_counter() - start_total) * 1000
+        self.logger.info(
+            "camera.update id=%s timings: get_camera=%.2fms checks=%.2fms commit=%.2fms refresh=%.2fms total=%.2fms",
+            id,
+            t_get_camera_ms,
+            t_checks_ms,
+            t_commit_ms,
+            t_refresh_ms,
+            t_total_ms,
+        )
+
         return camera
 
     async def delete_camera(self, id: int) -> Camera:
