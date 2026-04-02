@@ -30,6 +30,11 @@ from src.services.interfaces.i_administrative_class_service import (
 )
 from src.services.administrative_class_service import AdministrativeClassService
 from src.controller.administrative_class_controller import AdministrativeClassController
+from src.repository.interfaces.i_course_repo import ICourseRepository
+from src.repository.course_repo import CourseRepository
+from src.services.interfaces.i_course_service import ICourseService
+from src.services.course_service import CourseService
+from src.controller.course_controller import CourseController
 
 
 def get_student_repo(
@@ -85,6 +90,24 @@ def get_administrative_class_controller(
     service: IAdministrativeClassService = Depends(get_administrative_class_service),
 ) -> AdministrativeClassController:
     return AdministrativeClassController(service)
+
+
+def get_course_repo(
+    db: AsyncSession = Depends(get_db),
+) -> ICourseRepository:
+    return CourseRepository(db)
+
+
+def get_course_service(
+    repo: ICourseRepository = Depends(get_course_repo),
+) -> ICourseService:
+    return CourseService(repo)
+
+
+def get_course_controller(
+    service: ICourseService = Depends(get_course_service),
+) -> CourseController:
+    return CourseController(service)
 
 
 # ===================== AUTH ===================== #
