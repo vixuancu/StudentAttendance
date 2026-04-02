@@ -11,6 +11,7 @@ from src.routes.v1 import (
     classrooms_routes,
     administrative_class_routes,
     course_routes,
+    course_section_routes,
     auth_routes,
 )
 
@@ -27,6 +28,7 @@ api_router.include_router(account_routes.router)
 api_router.include_router(camera_routes.router)
 api_router.include_router(classrooms_routes.router)
 api_router.include_router(course_routes.router)
+api_router.include_router(course_section_routes.router)
 # api_router.include_router(user_routes.router)
 # api_router.include_router(course_routes.router)
 # api_router.include_router(attendance_routes.router)
