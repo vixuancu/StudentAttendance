@@ -35,6 +35,11 @@ from src.repository.course_repo import CourseRepository
 from src.services.interfaces.i_course_service import ICourseService
 from src.services.course_service import CourseService
 from src.controller.course_controller import CourseController
+from src.repository.interfaces.i_course_section_repo import ICourseSectionRepository
+from src.repository.course_section_repo import CourseSectionRepository
+from src.services.interfaces.i_course_section_service import ICourseSectionService
+from src.services.course_section_service import CourseSectionService
+from src.controller.course_section_controller import CourseSectionController
 
 
 def get_student_repo(
@@ -108,6 +113,24 @@ def get_course_controller(
     service: ICourseService = Depends(get_course_service),
 ) -> CourseController:
     return CourseController(service)
+
+
+def get_course_section_repo(
+    db: AsyncSession = Depends(get_db),
+) -> ICourseSectionRepository:
+    return CourseSectionRepository(db)
+
+
+def get_course_section_service(
+    repo: ICourseSectionRepository = Depends(get_course_section_repo),
+) -> ICourseSectionService:
+    return CourseSectionService(repo)
+
+
+def get_course_section_controller(
+    service: ICourseSectionService = Depends(get_course_section_service),
+) -> CourseSectionController:
+    return CourseSectionController(service)
 
 
 # ===================== AUTH ===================== #

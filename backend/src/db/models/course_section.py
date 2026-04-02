@@ -1,5 +1,13 @@
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Boolean, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -14,6 +22,10 @@ if TYPE_CHECKING:
 
 class CourseSection(Base):
     __tablename__ = "course_section"
+    __table_args__ = (
+        CheckConstraint("start_time < end_time", name="chk_time"),
+        CheckConstraint("start_date < end_date", name="chk_date"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
