@@ -10,11 +10,16 @@ from fastapi.responses import StreamingResponse
 from src.controller.student_controller import StudentController
 from src.controller.student_face_controller import StudentFaceController
 from src.db.models.user import User
-from src.deps import get_student_controller, get_student_face_controller
+from src.deps import (
+    get_attendance_controller,
+    get_student_controller,
+    get_student_face_controller,
+)
 from src.dto.common import DataResponse, ListResponse
 from src.dto.request.student_face_request import StudentFaceCreateRequest
 from src.dto.request.student_request import StudentCreateRequest, StudentUpdateRequest
 from src.dto.response.student_face_response import StudentFaceResponse
+from src.dto.response.attendance_response import AIDemoFaceUploadResponse
 from src.dto.response.student_response import (
     AdministrativeClassResponse,
     StudentImportResultResponse,
@@ -155,3 +160,18 @@ async def delete_student_face(
     ctrl: StudentFaceController = Depends(get_student_face_controller),
 ):
     return await ctrl.delete_face(student_id, face_id)
+
+
+@router.post(
+    "/{student_id}/faces/upload",
+    response_model=DataResponse[AIDemoFaceUploadResponse],
+    summary="Upload ảnh mặt và tự động trích embedding",
+)
+async def upload_student_faces_with_embedding(
+    student_id: int,
+    files: list[UploadFile] = File(..., description="Danh sách ảnh khuôn mặt"),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentFaceController = Depends(get_student_face_controller),
+    demo_ctrl = Depends(get_attendance_controller),
+):
+    return await demo_ctrl.upload_student_faces(student_id=student_id, files=files)

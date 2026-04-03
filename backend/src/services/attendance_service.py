@@ -1,0 +1,479 @@
+import asyncio
+import json
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+import cv2
+import numpy as np
+
+from src.config.settings import settings
+from src.repository.ai_demo_repo import AIDemoRepository
+from src.services.recognition_service import (
+    AIDemoRTSPWorker,
+    build_cache_from_rows,
+    extract_embedding_from_path,
+    extract_embeddings_from_crops,
+    match_from_cache,
+)
+from src.utils.ai_demo_logger import get_ai_demo_log_path, log_ai_demo_event
+from src.utils.exceptions import ValidationException
+
+
+_backend_dir = Path(__file__).resolve().parents[2]
+(_backend_dir / "uploads").mkdir(parents=True, exist_ok=True)
+
+
+@dataclass
+class AIDemoRuntime:
+    lock: threading.RLock = field(default_factory=threading.RLock)
+    active: bool = False
+    runtime_id: str = ""
+    mode: str = "webcam"
+    started_at: float = 0.0
+    rtsp_url: str = ""
+    cache_data: dict = field(default_factory=lambda: build_cache_from_rows([]))
+    attended_student_ids: set[int] = field(default_factory=set)
+    worker: Optional[AIDemoRTSPWorker] = None
+
+    def reset(self):
+        self.active = False
+        self.runtime_id = ""
+        self.mode = "webcam"
+        self.started_at = 0.0
+        self.rtsp_url = ""
+        self.attended_student_ids.clear()
+        if self.worker:
+            self.worker.stop()
+        self.worker = None
+
+
+_RUNTIME = AIDemoRuntime()
+
+
+def get_ai_demo_runtime() -> AIDemoRuntime:
+    return _RUNTIME
+
+
+class AIDemoService:
+    def __init__(self, repo: AIDemoRepository | None, runtime: AIDemoRuntime):
+        self.repo = repo
+        self.runtime = runtime
+
+    async def get_config(self) -> dict:
+        return {
+            "mode": settings.ai_demo_mode,
+            "hidden_page_path": settings.ai_demo_hidden_page_path,
+            "rtsp_supported": True,
+            "debug_log_path": get_ai_demo_log_path(),
+        }
+
+    async def rebuild_cache(self) -> dict:
+        if self.repo is None:
+            raise ValidationException("Repository chưa được khởi tạo", field="repo")
+        rows = await self.repo.fetch_active_student_faces()
+        cache_data = build_cache_from_rows(rows)
+        with self.runtime.lock:
+            self.runtime.cache_data = cache_data
+        log_ai_demo_event(
+            "cache_rebuild",
+            students=cache_data["n_students"],
+            embeddings=cache_data["n_embeddings"],
+        )
+        return {
+            "students": cache_data["n_students"],
+            "embeddings": cache_data["n_embeddings"],
+        }
+
+    def _normalize_mode(self, requested_mode: Optional[str]) -> str:
+        allowed = {"webcam", "ip_camera", "both"}
+        mode = (requested_mode or settings.ai_demo_mode or "webcam").strip().lower()
+        if mode not in allowed:
+            raise ValidationException("Mode không hợp lệ", field="mode")
+
+        env_mode = settings.ai_demo_mode.strip().lower()
+        if env_mode not in allowed:
+            env_mode = "both"
+
+        if env_mode == "both":
+            if mode == "both":
+                return "webcam"
+            return mode
+
+        if mode == "both":
+            return env_mode
+
+        if mode != env_mode:
+            raise ValidationException(
+                f"Mode hiện tại chỉ cho phép '{env_mode}'",
+                field="mode",
+            )
+        return mode
+
+    async def start(self, mode: Optional[str], rtsp_url: Optional[str]) -> dict:
+        selected_mode = self._normalize_mode(mode)
+        cache_info = await self.rebuild_cache()
+        if cache_info["embeddings"] == 0:
+            raise ValidationException(
+                "Không có embedding nào trong student_faces. Hãy upload ảnh sinh viên trước.",
+                field="cache",
+            )
+
+        cleaned_rtsp = (rtsp_url or "").strip().replace(" ", "")
+        if selected_mode == "ip_camera":
+            if not cleaned_rtsp:
+                raise ValidationException("RTSP URL không được để trống", field="rtsp_url")
+            if not cleaned_rtsp.lower().startswith(("rtsp://", "rtsps://")):
+                raise ValidationException("RTSP URL phải bắt đầu bằng rtsp:// hoặc rtsps://", field="rtsp_url")
+
+        with self.runtime.lock:
+            if self.runtime.worker:
+                self.runtime.worker.stop()
+                self.runtime.worker = None
+
+            self.runtime.active = True
+            self.runtime.runtime_id = uuid.uuid4().hex
+            self.runtime.mode = selected_mode
+            self.runtime.started_at = time.time()
+            self.runtime.rtsp_url = cleaned_rtsp
+            self.runtime.attended_student_ids.clear()
+
+            if selected_mode == "ip_camera":
+                worker = AIDemoRTSPWorker(
+                    rtsp_url=cleaned_rtsp,
+                    get_cache=self._get_cache,
+                    is_attended=self._is_attended,
+                    mark_attended=self._mark_attended,
+                    runtime_id=self.runtime.runtime_id,
+                )
+                worker.start()
+                self.runtime.worker = worker
+
+            log_ai_demo_event(
+                "runtime_start",
+                runtime_id=self.runtime.runtime_id,
+                mode=self.runtime.mode,
+                rtsp_url=self.runtime.rtsp_url,
+                cached_embeddings=cache_info["embeddings"],
+            )
+
+            return {
+                "runtime_id": self.runtime.runtime_id,
+                "mode": self.runtime.mode,
+                "started_at": self.runtime.started_at,
+                "total_students": cache_info["students"],
+                "cached_embeddings": cache_info["embeddings"],
+                "rtsp_url": self.runtime.rtsp_url,
+            }
+
+    async def stop(self, runtime_id: Optional[str]) -> dict:
+        with self.runtime.lock:
+            if not self.runtime.active:
+                return {
+                    "stopped": True,
+                    "total_attended": 0,
+                }
+
+            if runtime_id and runtime_id != self.runtime.runtime_id:
+                raise ValidationException("runtime_id không hợp lệ", field="runtime_id")
+
+            total = len(self.runtime.attended_student_ids)
+            old_runtime = self.runtime.runtime_id
+            self.runtime.reset()
+            log_ai_demo_event(
+                "runtime_stop",
+                runtime_id=old_runtime,
+                total_attended=total,
+            )
+            return {
+                "stopped": True,
+                "total_attended": total,
+            }
+
+    async def status(self, runtime_id: Optional[str]) -> dict:
+        with self.runtime.lock:
+            if not self.runtime.active:
+                return {
+                    "active": False,
+                    "runtime_id": "",
+                    "mode": "",
+                    "total_attended": 0,
+                    "cached_embeddings": int(self.runtime.cache_data["n_embeddings"]),
+                    "connected": False,
+                }
+
+            if runtime_id and runtime_id != self.runtime.runtime_id:
+                raise ValidationException("runtime_id không hợp lệ", field="runtime_id")
+
+            connected = self.runtime.worker.connected if self.runtime.worker else True
+            return {
+                "active": True,
+                "runtime_id": self.runtime.runtime_id,
+                "mode": self.runtime.mode,
+                "started_at": self.runtime.started_at,
+                "total_attended": len(self.runtime.attended_student_ids),
+                "cached_embeddings": int(self.runtime.cache_data["n_embeddings"]),
+                "connected": connected,
+            }
+
+    async def recognize_fast(self, runtime_id: str, face_files, face_positions_json: str) -> dict:
+        with self.runtime.lock:
+            if not self.runtime.active:
+                raise ValidationException("Demo chưa start", field="runtime")
+            if runtime_id != self.runtime.runtime_id:
+                raise ValidationException("runtime_id không hợp lệ", field="runtime_id")
+            if self.runtime.mode not in {"webcam", "both"}:
+                raise ValidationException("Runtime hiện tại không ở chế độ webcam", field="mode")
+            cache_data = self.runtime.cache_data
+
+        if settings.ai_demo_debug_log_verbose:
+            log_ai_demo_event(
+                "webcam_recognize_call",
+                runtime_id=runtime_id,
+                positions_payload_size=len(face_positions_json or ""),
+                files_count=len(face_files),
+            )
+
+        t0 = time.perf_counter()
+        try:
+            positions = json.loads(face_positions_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            positions = []
+
+        crops = []
+        for ff in face_files:
+            content = await ff.read()
+            if not content:
+                continue
+            arr = np.frombuffer(content, np.uint8)
+            crop = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            if crop is not None:
+                crops.append(crop)
+
+        if settings.ai_demo_debug_log_verbose:
+            log_ai_demo_event(
+                "webcam_recognize_input",
+                runtime_id=runtime_id,
+                uploaded_faces=len(face_files),
+                decoded_crops=len(crops),
+                positions_count=len(positions),
+            )
+
+        if not crops:
+            with self.runtime.lock:
+                total_attended_now = len(self.runtime.attended_student_ids)
+            return {
+                "status": "no_face",
+                "faces": [],
+                "total_faces": 0,
+                "new_attended": [],
+                "total_attended": total_attended_now,
+                "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
+            }
+
+        embeddings_with_quality = await asyncio.to_thread(extract_embeddings_from_crops, crops)
+
+        results = []
+        new_attended = []
+        debug_faces = []
+        emb_ok_count = 0
+        for i, (emb, quality) in enumerate(embeddings_with_quality):
+            pos = positions[i] if i < len(positions) and isinstance(positions[i], dict) else {}
+            face_box = {
+                "xCenter": float(pos.get("xCenter", 0.0)),
+                "yCenter": float(pos.get("yCenter", 0.0)),
+            }
+
+            if emb is None:
+                results.append({"recognized": False, "face_box": face_box, "debug": {"reason": "no_embedding"}})
+                debug_faces.append({"idx": i, "reason": "no_embedding", "quality": round(float(quality), 4)})
+                continue
+
+            emb_ok_count += 1
+
+            match, score, dbg = match_from_cache(emb, cache_data, float(quality))
+            if match is None:
+                results.append({"recognized": False, "face_box": face_box, "debug": dbg})
+                debug_faces.append({
+                    "idx": i,
+                    "reason": dbg.get("reason", "unmatched"),
+                    "quality": round(float(quality), 4),
+                    "best": dbg.get("best"),
+                    "threshold": dbg.get("threshold"),
+                    "margin": dbg.get("margin"),
+                })
+                continue
+
+            sid = int(match["student_id"])
+            with self.runtime.lock:
+                already = sid in self.runtime.attended_student_ids
+                if not already:
+                    self.runtime.attended_student_ids.add(sid)
+
+            if not already:
+                new_attended.append(
+                    {
+                        "student_id": sid,
+                        "student_code": match["student_code"],
+                        "full_name": match["full_name"],
+                        "confidence": round(float(score) * 100, 1),
+                    }
+                )
+
+            results.append(
+                {
+                    "recognized": True,
+                    "student_id": sid,
+                    "student_code": match["student_code"],
+                    "full_name": match["full_name"],
+                    "confidence": round(float(score) * 100, 1),
+                    "already_marked": already,
+                    "face_box": face_box,
+                    "debug": dbg,
+                }
+            )
+            debug_faces.append(
+                {
+                    "idx": i,
+                    "reason": "matched",
+                    "student_id": sid,
+                    "quality": round(float(quality), 4),
+                    "best": dbg.get("best"),
+                    "threshold": dbg.get("threshold"),
+                    "margin": dbg.get("margin"),
+                }
+            )
+
+        elapsed = round((time.perf_counter() - t0) * 1000, 1)
+        with self.runtime.lock:
+            total_attended = len(self.runtime.attended_student_ids)
+
+        recognized_count = len([f for f in results if f.get("recognized")])
+        if settings.ai_demo_debug_log_verbose:
+            log_ai_demo_event(
+                "webcam_recognize_result",
+                runtime_id=runtime_id,
+                crops_count=len(crops),
+                emb_ok_count=emb_ok_count,
+                recognized_count=recognized_count,
+                new_attended_count=len(new_attended),
+                total_attended=total_attended,
+                elapsed_ms=elapsed,
+                faces_debug=debug_faces,
+            )
+
+        return {
+            "status": "success",
+            "faces": results,
+            "total_faces": len(results),
+            "new_attended": new_attended,
+            "total_attended": total_attended,
+            "elapsed_ms": elapsed,
+        }
+
+    def get_stream_packet(self, runtime_id: str) -> Optional[tuple[int, bytes]]:
+        with self.runtime.lock:
+            if not self.runtime.active or runtime_id != self.runtime.runtime_id:
+                return None
+            if self.runtime.worker is None:
+                return None
+            return self.runtime.worker.get_stream_packet()
+
+    def is_runtime_active(self, runtime_id: str) -> bool:
+        with self.runtime.lock:
+            return self.runtime.active and self.runtime.runtime_id == runtime_id
+
+    def get_results_payload(self, runtime_id: str) -> Optional[dict]:
+        with self.runtime.lock:
+            if not self.runtime.active or runtime_id != self.runtime.runtime_id:
+                return None
+            if self.runtime.worker is None:
+                return None
+            return self.runtime.worker.get_latest_results_payload()
+
+    def _get_cache(self) -> dict:
+        with self.runtime.lock:
+            return self.runtime.cache_data
+
+    def _is_attended(self, sid: int) -> bool:
+        with self.runtime.lock:
+            return sid in self.runtime.attended_student_ids
+
+    def _mark_attended(self, sid: int) -> None:
+        with self.runtime.lock:
+            self.runtime.attended_student_ids.add(sid)
+
+    async def upload_student_faces(self, student_id: int, files) -> dict:
+        if self.repo is None:
+            raise ValidationException("Repository chưa được khởi tạo", field="repo")
+        student = await self.repo.get_active_student_by_id(student_id)
+        if student is None:
+            raise ValidationException("Sinh viên không tồn tại hoặc đã bị khóa", field="student_id")
+
+        backend_dir = _backend_dir
+        image_root = backend_dir / settings.ai_demo_image_dir
+        student_dir = image_root / str(student.student_code)
+        student_dir.mkdir(parents=True, exist_ok=True)
+
+        allowed_ext = {".jpg", ".jpeg", ".png", ".webp"}
+        uploaded_faces = []
+        errors = []
+
+        for file in files:
+            filename = (file.filename or "").strip()
+            if not filename:
+                continue
+
+            ext = Path(filename).suffix.lower()
+            if ext not in allowed_ext:
+                errors.append(f"{filename}: định dạng không hỗ trợ")
+                continue
+
+            safe_name = f"{uuid.uuid4().hex}{ext}"
+            full_path = student_dir / safe_name
+
+            content = await file.read()
+            if not content:
+                errors.append(f"{filename}: file rỗng")
+                continue
+
+            full_path.write_bytes(content)
+
+            emb = await asyncio.to_thread(extract_embedding_from_path, str(full_path))
+            if emb is None:
+                full_path.unlink(missing_ok=True)
+                errors.append(f"{filename}: không trích xuất được embedding")
+                log_ai_demo_event(
+                    "upload_face_fail",
+                    student_id=int(student_id),
+                    filename=filename,
+                    reason="extract_embedding_failed",
+                )
+                continue
+
+            rel_path = full_path.relative_to(backend_dir).as_posix()
+            face = await self.repo.add_student_face(
+                student_id=student.id,
+                image_url=rel_path,
+                embedding=emb.tolist(),
+            )
+            uploaded_faces.append({"id": int(face.id), "image_url": rel_path})
+            log_ai_demo_event(
+                "upload_face_success",
+                student_id=int(student_id),
+                face_id=int(face.id),
+                image_url=rel_path,
+            )
+
+        if uploaded_faces:
+            await self.rebuild_cache()
+
+        return {
+            "uploaded": len(uploaded_faces),
+            "failed": len(errors),
+            "faces": uploaded_faces,
+            "errors": errors,
+        }

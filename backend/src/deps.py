@@ -191,3 +191,29 @@ def get_classroom_controller(
     service: IClassroomService = Depends(get_classroom_service),
 ) -> ClassroomController:
     return ClassroomController(service)
+
+
+# ===================== AI DEMO ATTENDANCE ===================== #
+from src.repository.ai_demo_repo import AIDemoRepository
+from src.services.attendance_service import AIDemoService, get_ai_demo_runtime
+from src.controller.attendance_controller import AttendanceController
+
+
+def get_ai_demo_repo(db: AsyncSession = Depends(get_db)) -> AIDemoRepository:
+    return AIDemoRepository(db)
+
+
+def get_ai_demo_service(
+    repo: AIDemoRepository = Depends(get_ai_demo_repo),
+) -> AIDemoService:
+    return AIDemoService(repo=repo, runtime=get_ai_demo_runtime())
+
+
+def get_ai_demo_runtime_service() -> AIDemoService:
+    return AIDemoService(repo=None, runtime=get_ai_demo_runtime())
+
+
+def get_attendance_controller(
+    service: AIDemoService = Depends(get_ai_demo_service),
+) -> AttendanceController:
+    return AttendanceController(service)

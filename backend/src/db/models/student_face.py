@@ -20,7 +20,7 @@ class StudentFace(Base):
         nullable=False,
     )
     image_url: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(Vector(), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(512), nullable=False)
     created_at: Mapped[Optional[object]] = mapped_column(
         DateTime(timezone=False),
         server_default=func.now(),

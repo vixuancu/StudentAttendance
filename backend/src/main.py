@@ -7,6 +7,7 @@ FastAPI Application Entry Point.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -30,6 +31,7 @@ from src.utils.exceptions import (
     ValidationException,
 )
 from src.utils.exception import ApiError
+from fastapi.staticfiles import StaticFiles
 
 # Khởi tạo logging trước khi tạo app
 setup_logging()
@@ -61,21 +63,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_uploads_dir = os.path.join(_backend_dir, "uploads")
+_logs_dir = os.path.join(_backend_dir, "logs")
+os.makedirs(_uploads_dir, exist_ok=True)
+os.makedirs(_logs_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+app.mount("/logs", StaticFiles(directory=_logs_dir), name="logs")
+
 # ===================== MIDDLEWARE ======================================== #
 # Thứ tự add middleware: sau cùng add = chạy ĐẦU TIÊN
 setup_cors(app)
-app.add_middleware(RequestLoggingMiddleware)
-if settings.gzip_enabled:
-    app.add_middleware(
-        GZipMiddleware,
-        minimum_size=settings.gzip_minimum_size,
-        compresslevel=settings.gzip_compresslevel,
-    )
-    logger.info(
-        "🗜️ GZip enabled (minimum_size=%dB, level=%d)",
-        settings.gzip_minimum_size,
-        settings.gzip_compresslevel,
-    )
+# app.add_middleware(RequestLoggingMiddleware)
+# if settings.gzip_enabled:
+#     app.add_middleware(
+#         GZipMiddleware,
+#         minimum_size=settings.gzip_minimum_size,
+#         compresslevel=settings.gzip_compresslevel,
+#     )
+#     logger.info(
+#         "🗜️ GZip enabled (minimum_size=%dB, level=%d)",
+#         settings.gzip_minimum_size,
+#         settings.gzip_compresslevel,
+#     )
 
 
 # ===================== BUSINESS EXCEPTION HANDLERS ====================== #
