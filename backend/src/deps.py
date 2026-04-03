@@ -30,6 +30,16 @@ from src.services.interfaces.i_administrative_class_service import (
 )
 from src.services.administrative_class_service import AdministrativeClassService
 from src.controller.administrative_class_controller import AdministrativeClassController
+from src.repository.interfaces.i_course_repo import ICourseRepository
+from src.repository.course_repo import CourseRepository
+from src.services.interfaces.i_course_service import ICourseService
+from src.services.course_service import CourseService
+from src.controller.course_controller import CourseController
+from src.repository.interfaces.i_course_section_repo import ICourseSectionRepository
+from src.repository.course_section_repo import CourseSectionRepository
+from src.services.interfaces.i_course_section_service import ICourseSectionService
+from src.services.course_section_service import CourseSectionService
+from src.controller.course_section_controller import CourseSectionController
 
 
 def get_student_repo(
@@ -85,6 +95,42 @@ def get_administrative_class_controller(
     service: IAdministrativeClassService = Depends(get_administrative_class_service),
 ) -> AdministrativeClassController:
     return AdministrativeClassController(service)
+
+
+def get_course_repo(
+    db: AsyncSession = Depends(get_db),
+) -> ICourseRepository:
+    return CourseRepository(db)
+
+
+def get_course_service(
+    repo: ICourseRepository = Depends(get_course_repo),
+) -> ICourseService:
+    return CourseService(repo)
+
+
+def get_course_controller(
+    service: ICourseService = Depends(get_course_service),
+) -> CourseController:
+    return CourseController(service)
+
+
+def get_course_section_repo(
+    db: AsyncSession = Depends(get_db),
+) -> ICourseSectionRepository:
+    return CourseSectionRepository(db)
+
+
+def get_course_section_service(
+    repo: ICourseSectionRepository = Depends(get_course_section_repo),
+) -> ICourseSectionService:
+    return CourseSectionService(repo)
+
+
+def get_course_section_controller(
+    service: ICourseSectionService = Depends(get_course_section_service),
+) -> CourseSectionController:
+    return CourseSectionController(service)
 
 
 # ===================== AUTH ===================== #
