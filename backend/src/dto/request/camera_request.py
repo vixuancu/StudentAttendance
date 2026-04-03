@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 class CameraCreateRequest(BaseModel):
     camera_name: str = Field(..., min_length=1, max_length=255)
     ip_address: str = Field(..., min_length=3, max_length=39)
+    camera_stream_url: str = Field(default="")
     camera_status: int = Field(default=0, ge=0, le=1)
     classroom_id: int = Field(...)
 
@@ -25,6 +26,7 @@ class CameraCreateRequest(BaseModel):
 class CameraUpdateRequest(BaseModel):
     camera_name: Optional[str] = Field(None, min_length=1, max_length=255)
     ip_address: Optional[str] = Field(None, min_length=3, max_length=39)
+    camera_stream_url: Optional[str] = Field(None)
     camera_status: Optional[int] = Field(None, ge=0, le=1)
     classroom_id: Optional[int] = Field(None)
 

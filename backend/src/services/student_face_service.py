@@ -1,4 +1,5 @@
 import logging
+import math
 
 from src.db.models.student_face import StudentFace
 from src.repository.interfaces.i_student_face_repo import IStudentFaceRepository
@@ -25,7 +26,33 @@ class StudentFaceService(IStudentFaceService):
         return await self.face_repo.get_by_student_id(student_id)
 
     async def add_face(self, student_id: int, image_url: str) -> StudentFace:
-        return await self.add_face_with_embedding(student_id, image_url, None)
+        raise ValidationException(
+            "Thiếu embedding khuôn mặt. Hãy dùng API upload ảnh để hệ thống tự trích embedding.",
+            field="embedding",
+        )
+
+    def _validate_embedding(self, embedding: list[float] | None) -> list[float]:
+        if embedding is None:
+            raise ValidationException(
+                "Thiếu embedding khuôn mặt. Hãy dùng API upload ảnh để hệ thống tự trích embedding.",
+                field="embedding",
+            )
+        if len(embedding) != 512:
+            raise ValidationException(
+                f"Embedding không hợp lệ: cần đúng 512 chiều, nhận {len(embedding)}",
+                field="embedding",
+            )
+
+        normalized: list[float] = []
+        for value in embedding:
+            value_float = float(value)
+            if not math.isfinite(value_float):
+                raise ValidationException(
+                    "Embedding không hợp lệ: chứa giá trị không hữu hạn",
+                    field="embedding",
+                )
+            normalized.append(value_float)
+        return normalized
 
     async def add_face_with_embedding(
         self,
@@ -38,7 +65,7 @@ class StudentFaceService(IStudentFaceService):
         if not normalized_url:
             raise ValidationException("URL ảnh không hợp lệ", field="image_url")
 
-        safe_embedding = embedding if embedding is not None else []
+        safe_embedding = self._validate_embedding(embedding)
         face = await self.face_repo.create(
             {
                 "student_id": student_id,
