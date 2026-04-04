@@ -23,7 +23,7 @@ class Camera(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    ip_address: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    ip_address: Mapped[str] = mapped_column(String(255), nullable=False)
     camera_stream_url: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("''")
     )

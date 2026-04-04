@@ -21,12 +21,12 @@ router = APIRouter(prefix="/cameras", tags=["Cameras"])
 async def get_cameras(
     page: int = Query(1, ge=1, description="Số trang"),
     page_size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
-    camera_name: Optional[str] = Query(None, description="Tìm theo tên camera"),
+    cameraName: Optional[str] = Query(None, description="Tìm theo tên camera"),
     _current_user: User = Depends(require_roles("admin")),
     ctrl: CameraController = Depends(get_camera_controller),
 ):
     pagination = PaginationParams(page=page, page_size=page_size)
-    return await ctrl.get_cameras(pagination, camera_name)
+    return await ctrl.get_cameras(pagination, camera_name=cameraName)
 
 
 @router.get(
