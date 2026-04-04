@@ -24,12 +24,12 @@ router = APIRouter(prefix="/classrooms", tags=["Classrooms"])
 async def get_classrooms(
     page: int = Query(1, ge=1, description="Số trang"),
     page_size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
-    camera_name: Optional[str] = Query(None, description="Tìm theo tên camera"),
+    className: Optional[str] = Query(None, description="Tìm theo tên phòng"),
     _current_user: User = Depends(require_roles("admin")),
     ctrl: ClassroomController = Depends(get_classroom_controller),
 ):
     pagination = PaginationParams(page=page, page_size=page_size)
-    return await ctrl.get_classrooms(pagination, camera_name)
+    return await ctrl.get_classrooms(pagination, class_name=className)
 
 
 @router.get(
