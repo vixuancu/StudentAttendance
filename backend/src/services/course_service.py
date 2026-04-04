@@ -14,6 +14,10 @@ class CourseService(ICourseService):
     def __init__(self, repo: ICourseRepository):
         self.repo = repo
 
+    @staticmethod
+    def _normalize_course_name(course_name: str) -> str:
+        return " ".join(course_name.split())
+
     async def list_courses(
         self,
         pagination: PaginationParams,
@@ -36,7 +40,7 @@ class CourseService(ICourseService):
         return item
 
     async def create(self, request: CourseCreateRequest) -> Course:
-        course_name = request.course_name.strip()
+        course_name = self._normalize_course_name(request.course_name)
         existed = await self.repo.get_by_name_ci(course_name)
         if existed is not None:
             raise AlreadyExists(ERROR_CODES.COURSE.COURSE_NAME_IS_EXISTED)
@@ -49,7 +53,7 @@ class CourseService(ICourseService):
 
         new_name = data.get("course_name")
         if new_name is not None:
-            normalized_name = new_name.strip()
+            normalized_name = self._normalize_course_name(new_name)
             if not normalized_name:
                 raise ValueError("course_name cannot be empty")
 

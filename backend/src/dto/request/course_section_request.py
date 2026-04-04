@@ -59,3 +59,7 @@ class CourseSectionUpdateRequest(BaseModel):
             raise ValueError("start_time must be before end_time")
 
         return self
+
+
+class CourseSectionEnrollmentCreateRequest(BaseModel):
+    student_id: int = Field(..., ge=1)

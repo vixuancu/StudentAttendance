@@ -3,8 +3,10 @@ from typing import Optional
 
 from src.constant.error_code import ERROR_CODES
 from src.db.models.course_section import CourseSection
+from src.db.models.student import Student
 from src.dto.common import PaginationParams
 from src.dto.request.course_section_request import (
+    CourseSectionEnrollmentCreateRequest,
     CourseSectionCreateRequest,
     CourseSectionUpdateRequest,
 )
@@ -150,3 +152,73 @@ class CourseSectionService(ICourseSectionService):
         lecturers = await self.repo.list_lecturer_options()
         rooms = await self.repo.list_room_options()
         return courses, lecturers, rooms
+
+    async def list_enrolled_students(
+        self,
+        section_id: int,
+        pagination: PaginationParams,
+        search: Optional[str] = None,
+    ) -> tuple[list[Student], int]:
+        await self.get_by_id(section_id)
+
+        students = await self.repo.list_enrolled_students(
+            section_id=section_id,
+            skip=pagination.offset,
+            limit=pagination.limit,
+            search=search,
+        )
+        total = await self.repo.count_enrolled_students(
+            section_id=section_id, search=search
+        )
+        return students, total
+
+    async def add_student_to_section(
+        self,
+        section_id: int,
+        request: CourseSectionEnrollmentCreateRequest,
+    ) -> Student:
+        await self.get_by_id(section_id)
+
+        student = await self.repo.get_student_by_id(request.student_id)
+        if student is None:
+            raise NotFound(ERROR_CODES.COURSE_SECTION.STUDENT_NOT_FOUND)
+
+        enrollment = await self.repo.get_enrollment(
+            student_id=request.student_id,
+            section_id=section_id,
+            include_cancel=True,
+        )
+        if enrollment is not None and not enrollment.is_cancel:
+            raise AlreadyExists(ERROR_CODES.COURSE_SECTION.STUDENT_ALREADY_ENROLLED)
+
+        if enrollment is not None and enrollment.is_cancel:
+            await self.repo.restore_enrollment(enrollment)
+        else:
+            await self.repo.create_enrollment(
+                student_id=request.student_id, section_id=section_id
+            )
+
+        refreshed = await self.repo.get_student_by_id(request.student_id)
+        return refreshed if refreshed is not None else student
+
+    async def remove_student_from_section(
+        self, section_id: int, student_id: int
+    ) -> None:
+        await self.get_by_id(section_id)
+
+        student = await self.repo.get_student_by_id(student_id)
+        if student is None:
+            raise NotFound(ERROR_CODES.COURSE_SECTION.STUDENT_NOT_FOUND)
+
+        enrollment = await self.repo.get_enrollment(
+            student_id=student_id,
+            section_id=section_id,
+            include_cancel=False,
+        )
+        if enrollment is None:
+            raise Validation(
+                message="Sinh viên chưa thuộc lớp tín chỉ này",
+                error_code=ERROR_CODES.COURSE_SECTION.STUDENT_NOT_ENROLLED,
+            )
+
+        await self.repo.soft_delete_enrollment(enrollment)

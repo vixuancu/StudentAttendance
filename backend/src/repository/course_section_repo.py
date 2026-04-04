@@ -7,6 +7,7 @@ from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
 from src.db.models.enrollment import Enrollment
 from src.db.models.role import Role
+from src.db.models.student import Student
 from src.db.models.user import User
 from src.repository.base import BaseRepository
 from src.repository.interfaces.i_course_section_repo import ICourseSectionRepository
@@ -165,3 +166,112 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
 
     async def soft_delete(self, db_obj: CourseSection):
         return await self.update(db_obj, {"is_cancel": True})
+
+    async def list_enrolled_students(
+        self,
+        section_id: int,
+        skip: int,
+        limit: int,
+        search: str | None,
+    ) -> list[Student]:
+        query = (
+            select(Student)
+            .join(
+                Enrollment,
+                Enrollment.student_id == Student.id,
+            )
+            .options(selectinload(Student.administrative_class))
+            .where(
+                Enrollment.course_section_id == section_id,
+                Enrollment.is_cancel.is_(False),
+                Student.is_cancel.is_(False),
+            )
+            .order_by(Student.full_name.asc(), Student.id.asc())
+        )
+
+        if search:
+            keyword = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Student.student_code.ilike(keyword),
+                    Student.full_name.ilike(keyword),
+                )
+            )
+
+        result = await self.db.execute(query.offset(skip).limit(limit))
+        return list(result.scalars().all())
+
+    async def count_enrolled_students(self, section_id: int, search: str | None) -> int:
+        query = (
+            select(func.count(Student.id))
+            .select_from(Student)
+            .join(
+                Enrollment,
+                Enrollment.student_id == Student.id,
+            )
+            .where(
+                Enrollment.course_section_id == section_id,
+                Enrollment.is_cancel.is_(False),
+                Student.is_cancel.is_(False),
+            )
+        )
+
+        if search:
+            keyword = f"%{search.strip()}%"
+            query = query.where(
+                or_(
+                    Student.student_code.ilike(keyword),
+                    Student.full_name.ilike(keyword),
+                )
+            )
+
+        result = await self.db.execute(query)
+        return int(result.scalar_one() or 0)
+
+    async def get_student_by_id(self, student_id: int):
+        result = await self.db.execute(
+            select(Student)
+            .options(selectinload(Student.administrative_class))
+            .where(Student.id == student_id, Student.is_cancel.is_(False))
+        )
+        return result.scalar_one_or_none()
+
+    async def get_enrollment(
+        self,
+        student_id: int,
+        section_id: int,
+        include_cancel: bool = False,
+    ):
+        query = select(Enrollment).where(
+            Enrollment.student_id == student_id,
+            Enrollment.course_section_id == section_id,
+        )
+
+        if not include_cancel:
+            query = query.where(Enrollment.is_cancel.is_(False))
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def create_enrollment(self, student_id: int, section_id: int):
+        enrollment = Enrollment(
+            student_id=student_id,
+            course_section_id=section_id,
+            is_cancel=False,
+        )
+        self.db.add(enrollment)
+        await self.db.flush()
+        await self.db.refresh(enrollment)
+        return enrollment
+
+    async def restore_enrollment(self, enrollment: Enrollment):
+        enrollment.is_cancel = False
+        await self.db.flush()
+        await self.db.refresh(enrollment)
+        return enrollment
+
+    async def soft_delete_enrollment(self, enrollment: Enrollment):
+        enrollment.is_cancel = True
+        await self.db.flush()
+        await self.db.refresh(enrollment)
+        return enrollment
