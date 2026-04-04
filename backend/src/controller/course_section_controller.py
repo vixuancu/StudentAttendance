@@ -14,6 +14,7 @@ from src.dto.response.course_section_response import (
     CourseSectionResponse,
 )
 from src.dto.response.student_response import StudentResponse
+from src.dto.response.student_response import StudentImportResultResponse
 from src.services.interfaces.i_course_section_service import ICourseSectionService
 
 
@@ -184,3 +185,22 @@ class CourseSectionController:
     ) -> DataResponse[None]:
         await self.service.remove_student_from_section(section_id, student_id)
         return DataResponse(message="Xóa sinh viên khỏi lớp tín chỉ thành công")
+
+    async def download_student_import_template(self, section_id: int) -> bytes:
+        return await self.service.build_student_import_template(section_id)
+
+    async def import_students_to_section(
+        self,
+        section_id: int,
+        file_content: bytes,
+        filename: str | None = None,
+    ) -> DataResponse[StudentImportResultResponse]:
+        result = await self.service.import_students_from_excel(
+            section_id=section_id,
+            file_content=file_content,
+            filename=filename,
+        )
+        return DataResponse(
+            data=result,
+            message="Import sinh viên vào lớp tín chỉ hoàn tất",
+        )

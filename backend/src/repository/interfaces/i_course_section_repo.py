@@ -88,6 +88,10 @@ class ICourseSectionRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_student_by_code_ci(self, student_code: str) -> Optional[Student]:
+        pass
+
+    @abstractmethod
     async def get_enrollment(
         self,
         student_id: int,

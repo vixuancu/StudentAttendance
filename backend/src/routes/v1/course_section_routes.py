@@ -1,6 +1,7 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from src.controller.course_section_controller import CourseSectionController
 from src.db.models.user import User
@@ -16,6 +17,7 @@ from src.dto.response.course_section_response import (
     CourseSectionResponse,
 )
 from src.dto.response.student_response import StudentResponse
+from src.dto.response.student_response import StudentImportResultResponse
 from src.middleware.auth import require_roles
 
 router = APIRouter(prefix="/course-sections", tags=["Course Sections"])
@@ -110,6 +112,40 @@ async def add_student_to_course_section(
     ctrl: CourseSectionController = Depends(get_course_section_controller),
 ):
     return await ctrl.add_student_to_section(section_id, request)
+
+
+@router.get("/{section_id}/students/import/template")
+async def download_section_student_import_template(
+    section_id: int,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: CourseSectionController = Depends(get_course_section_controller),
+):
+    content = await ctrl.download_student_import_template(section_id)
+    return StreamingResponse(
+        iter([content]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="credit_class_student_import_template.xlsx"',
+        },
+    )
+
+
+@router.post(
+    "/{section_id}/students/import",
+    response_model=DataResponse[StudentImportResultResponse],
+)
+async def import_students_to_course_section(
+    section_id: int,
+    file: UploadFile = File(..., description="File Excel .xlsx"),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: CourseSectionController = Depends(get_course_section_controller),
+):
+    content = await file.read()
+    return await ctrl.import_students_to_section(
+        section_id=section_id,
+        file_content=content,
+        filename=file.filename,
+    )
 
 
 @router.delete("/{section_id}/students/{student_id}", response_model=DataResponse[None])

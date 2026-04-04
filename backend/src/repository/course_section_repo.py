@@ -236,6 +236,18 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
         )
         return result.scalar_one_or_none()
 
+    async def get_student_by_code_ci(self, student_code: str):
+        normalized = student_code.strip().lower()
+        result = await self.db.execute(
+            select(Student)
+            .options(selectinload(Student.administrative_class))
+            .where(
+                func.lower(Student.student_code) == normalized,
+                Student.is_cancel.is_(False),
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_enrollment(
         self,
         student_id: int,

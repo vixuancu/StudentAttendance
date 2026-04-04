@@ -12,6 +12,7 @@ from src.dto.request.course_section_request import (
     CourseSectionCreateRequest,
     CourseSectionUpdateRequest,
 )
+from src.dto.response.student_response import StudentImportResultResponse
 
 
 class ICourseSectionService(ABC):
@@ -72,4 +73,17 @@ class ICourseSectionService(ABC):
     async def remove_student_from_section(
         self, section_id: int, student_id: int
     ) -> None:
+        pass
+
+    @abstractmethod
+    async def import_students_from_excel(
+        self,
+        section_id: int,
+        file_content: bytes,
+        filename: str | None = None,
+    ) -> StudentImportResultResponse:
+        pass
+
+    @abstractmethod
+    async def build_student_import_template(self, section_id: int) -> bytes:
         pass
