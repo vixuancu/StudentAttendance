@@ -30,7 +30,11 @@ class ICourseSectionRepository(ABC):
         pass
 
     @abstractmethod
-    async def count_sections(self, search: str | None, is_cancel: bool | None) -> int:
+    async def count_sections(
+        self,
+        search: str | None,
+        is_cancel: bool | None,
+    ) -> int:
         pass
 
     @abstractmethod

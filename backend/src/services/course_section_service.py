@@ -107,7 +107,10 @@ class CourseSectionService(ICourseSectionService):
             search=search,
             is_cancel=is_cancel,
         )
-        total = await self.repo.count_sections(search=search, is_cancel=is_cancel)
+        total = await self.repo.count_sections(
+            search=search,
+            is_cancel=is_cancel,
+        )
         return items, total
 
     async def get_by_id(self, section_id: int) -> CourseSection:

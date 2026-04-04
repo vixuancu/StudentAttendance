@@ -1,4 +1,4 @@
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -68,13 +68,7 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
 
         if search:
             keyword = f"%{search.strip()}%"
-            query = query.where(
-                or_(
-                    CourseSection.name.ilike(keyword),
-                    Course.course_name.ilike(keyword),
-                    User.full_name.ilike(keyword),
-                )
-            )
+            query = query.where(CourseSection.name.ilike(keyword))
 
         if is_cancel is not None:
             query = query.where(CourseSection.is_cancel.is_(is_cancel))
@@ -83,7 +77,11 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
         result = await self.db.execute(query)
         return [(row[0], int(row[1] or 0)) for row in result.all()]
 
-    async def count_sections(self, search: str | None, is_cancel: bool | None):
+    async def count_sections(
+        self,
+        search: str | None,
+        is_cancel: bool | None,
+    ):
         query = (
             select(func.count(CourseSection.id))
             .select_from(CourseSection)
@@ -93,13 +91,7 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
 
         if search:
             keyword = f"%{search.strip()}%"
-            query = query.where(
-                or_(
-                    CourseSection.name.ilike(keyword),
-                    Course.course_name.ilike(keyword),
-                    User.full_name.ilike(keyword),
-                )
-            )
+            query = query.where(CourseSection.name.ilike(keyword))
 
         if is_cancel is not None:
             query = query.where(CourseSection.is_cancel.is_(is_cancel))

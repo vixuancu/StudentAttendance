@@ -27,9 +27,7 @@ router = APIRouter(prefix="/course-sections", tags=["Course Sections"])
 async def get_course_sections(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    search: Optional[str] = Query(
-        None, description="Tìm theo mã lớp, học phần, giảng viên"
-    ),
+    search: Optional[str] = Query(None, description="Tìm theo mã lớp tín chỉ"),
     is_cancel: Optional[bool] = Query(None, description="Lọc theo trạng thái hủy"),
     _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: CourseSectionController = Depends(get_course_section_controller),
