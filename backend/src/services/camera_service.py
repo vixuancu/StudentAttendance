@@ -2,6 +2,7 @@ import time
 import logging
 import asyncio
 from typing import Optional
+from sqlalchemy.exc import IntegrityError
 
 from src.db.models.camera import Camera
 from src.dto.common import PaginationParams
@@ -38,6 +39,17 @@ class CameraService(ICameraService):
 
         return camera
 
+    def _map_integrity_error(self, error: IntegrityError) -> None:
+        detail = str(getattr(error, "orig", error)).lower()
+
+        if "cameras_ip_address_key" in detail or "ip_address" in detail:
+            raise AlreadyExists(ERROR_CODES.CAMERA.IP_ADDRESS_IS_EXISTED)
+
+        if "cameras_classroom_id_key" in detail or "classroom_id" in detail:
+            raise AlreadyExists(ERROR_CODES.CAMERA.CLASSROOM_ALREADY_HAS_CAMERA)
+
+        raise error
+
     async def create_camera(self, request) -> Camera:
         data = request.model_dump()
 
@@ -59,8 +71,12 @@ class CameraService(ICameraService):
         if camera_in_room:
             raise AlreadyExists(ERROR_CODES.CAMERA.CLASSROOM_ALREADY_HAS_CAMERA)
 
-        camera = await self.camera_repo.create(data)
-        return camera
+        try:
+            camera = await self.camera_repo.create(data)
+            return camera
+        except IntegrityError as exc:
+            await self.camera_repo.db.rollback()
+            self._map_integrity_error(exc)
 
         # async def update_camera(self, id: int, request) -> Camera:
         camera = await self.camera_repo.get_camera_by_id(id)
@@ -167,7 +183,11 @@ class CameraService(ICameraService):
             setattr(camera, key, value)
 
         t0 = time.perf_counter()
-        await self.camera_repo.db.commit()
+        try:
+            await self.camera_repo.db.commit()
+        except IntegrityError as exc:
+            await self.camera_repo.db.rollback()
+            self._map_integrity_error(exc)
         t_commit_ms = (time.perf_counter() - t0) * 1000
 
         t0 = time.perf_counter()
