@@ -111,16 +111,19 @@ class CourseSectionService(ICourseSectionService):
         pagination: PaginationParams,
         search: Optional[str] = None,
         is_cancel: Optional[bool] = None,
+        lecturer_id: Optional[int] = None,
     ) -> tuple[list[tuple[CourseSection, int]], int]:
         items = await self.repo.list_sections(
             skip=pagination.offset,
             limit=pagination.limit,
             search=search,
             is_cancel=is_cancel,
+            lecturer_id=lecturer_id,
         )
         total = await self.repo.count_sections(
             search=search,
             is_cancel=is_cancel,
+            lecturer_id=lecturer_id,
         )
         return items, total
 

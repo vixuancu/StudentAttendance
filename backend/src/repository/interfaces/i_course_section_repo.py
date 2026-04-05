@@ -28,6 +28,7 @@ class ICourseSectionRepository(ABC):
         limit: int,
         search: str | None,
         is_cancel: bool | None,
+        lecturer_id: int | None = None,
     ) -> list[tuple[CourseSection, int]]:
         pass
 
@@ -36,6 +37,7 @@ class ICourseSectionRepository(ABC):
         self,
         search: str | None,
         is_cancel: bool | None,
+        lecturer_id: int | None = None,
     ) -> int:
         pass
 

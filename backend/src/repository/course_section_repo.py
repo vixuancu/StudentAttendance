@@ -56,6 +56,7 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
         limit: int,
         search: str | None,
         is_cancel: bool | None,
+        lecturer_id: int | None = None,
     ):
         enrollment_count = (
             select(func.count(Enrollment.id))
@@ -92,6 +93,9 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
         if is_cancel is not None:
             query = query.where(CourseSection.is_cancel.is_(is_cancel))
 
+        if lecturer_id is not None:
+            query = query.where(CourseSection.user_id == lecturer_id)
+
         query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)
         return [(row[0], int(row[1] or 0)) for row in result.all()]
@@ -100,6 +104,7 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
         self,
         search: str | None,
         is_cancel: bool | None,
+        lecturer_id: int | None = None,
     ):
         query = (
             select(func.count(CourseSection.id))
@@ -114,6 +119,9 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
 
         if is_cancel is not None:
             query = query.where(CourseSection.is_cancel.is_(is_cancel))
+
+        if lecturer_id is not None:
+            query = query.where(CourseSection.user_id == lecturer_id)
 
         result = await self.db.execute(query)
         return result.scalar_one() or 0

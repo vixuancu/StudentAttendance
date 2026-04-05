@@ -102,8 +102,14 @@ class CourseSectionController:
         pagination: PaginationParams,
         search: str | None = None,
         is_cancel: bool | None = None,
+        lecturer_id: int | None = None,
     ) -> ListResponse[CourseSectionResponse]:
-        items, total = await self.service.list_sections(pagination, search, is_cancel)
+        items, total = await self.service.list_sections(
+            pagination,
+            search,
+            is_cancel,
+            lecturer_id,
+        )
 
         return ListResponse(
             data=[self._to_response(section, si_so) for section, si_so in items],

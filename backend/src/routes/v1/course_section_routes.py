@@ -29,11 +29,18 @@ async def get_course_sections(
     page_size: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None, description="Tìm theo mã lớp tín chỉ"),
     is_cancel: Optional[bool] = Query(None, description="Lọc theo trạng thái hủy"),
-    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
     ctrl: CourseSectionController = Depends(get_course_section_controller),
 ):
     pagination = PaginationParams(page=page, page_size=page_size)
-    return await ctrl.list_sections(pagination, search, is_cancel)
+    user_role_name = current_user.role.role_name if current_user.role else None
+    lecturer_id = current_user.id if user_role_name == "giang_vien" else None
+    return await ctrl.list_sections(
+        pagination=pagination,
+        search=search,
+        is_cancel=is_cancel,
+        lecturer_id=lecturer_id,
+    )
 
 
 @router.get("/options", response_model=DataResponse[CourseSectionFormOptionsResponse])

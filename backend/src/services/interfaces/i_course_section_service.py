@@ -23,6 +23,7 @@ class ICourseSectionService(ABC):
         pagination: PaginationParams,
         search: Optional[str] = None,
         is_cancel: Optional[bool] = None,
+        lecturer_id: Optional[int] = None,
     ) -> tuple[list[tuple[CourseSection, int]], int]:
         pass
 
