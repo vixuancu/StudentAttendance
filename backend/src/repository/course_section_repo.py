@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.db.models.classroom import Classroom
+from src.db.models.class_session import ClassSession
 from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
 from src.db.models.course_section_schedule import CourseSectionSchedule
@@ -42,7 +43,10 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
     async def get_by_name_ci(self, name: str):
         normalized = name.strip().lower()
         result = await self.db.execute(
-            select(CourseSection).where(func.lower(CourseSection.name) == normalized)
+            select(CourseSection).where(
+                func.lower(CourseSection.name) == normalized,
+                CourseSection.is_cancel.is_(False),
+            )
         )
         return result.scalar_one_or_none()
 
@@ -267,6 +271,23 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
             }
             objects.append(CourseSectionSchedule(**payload))
 
+        self.db.add_all(objects)
+        await self.db.flush()
+
+    async def list_class_sessions(self, section_id: int) -> list[ClassSession]:
+        result = await self.db.execute(
+            select(ClassSession).where(
+                ClassSession.course_section_id == section_id,
+                ClassSession.is_cancel.is_(False),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def create_class_sessions(self, sessions: list[dict]) -> None:
+        if not sessions:
+            return
+
+        objects = [ClassSession(**item) for item in sessions]
         self.db.add_all(objects)
         await self.db.flush()
 

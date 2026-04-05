@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from src.db.models.classroom import Classroom
+from src.db.models.class_session import ClassSession
 from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
 from src.db.models.enrollment import Enrollment
@@ -104,6 +105,14 @@ class ICourseSectionRepository(ABC):
         section_id: int,
         schedules: list[dict],
     ) -> None:
+        pass
+
+    @abstractmethod
+    async def list_class_sessions(self, section_id: int) -> list[ClassSession]:
+        pass
+
+    @abstractmethod
+    async def create_class_sessions(self, sessions: list[dict]) -> None:
         pass
 
     @abstractmethod

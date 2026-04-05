@@ -1,13 +1,15 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from io import BytesIO
 import re
 import unicodedata
 from typing import Optional
 
 from openpyxl import Workbook, load_workbook
+from sqlalchemy.exc import IntegrityError
 
 from src.constant.error_code import ERROR_CODES
 from src.constant.schedule_period import PERIOD_1_START_TIME, PERIOD_DURATION_MINUTES
+from src.db.models.enums import SessionStatus
 from src.db.models.course_section import CourseSection
 from src.db.models.student import Student
 from src.dto.common import PaginationParams
@@ -38,6 +40,14 @@ class CourseSectionService(ICourseSectionService):
 
     def __init__(self, repo: ICourseSectionRepository):
         self.repo = repo
+
+    @staticmethod
+    def _is_name_unique_violation(exc: IntegrityError) -> bool:
+        message = str(getattr(exc, "orig", exc)).lower()
+        return "course_section_name_key" in message or (
+            "duplicate key value violates unique constraint" in message
+            and "(name)" in message
+        )
 
     @staticmethod
     def _normalize_text(value: str) -> str:
@@ -208,6 +218,97 @@ class CourseSectionService(ICourseSectionService):
             payload["end_time"] = end_time
             normalized.append(payload)
         return normalized
+
+    @staticmethod
+    def _to_python_weekday(day_of_week: int) -> int:
+        if day_of_week == 8:
+            return 6
+        return day_of_week - 2
+
+    def _build_session_payloads(
+        self,
+        *,
+        section_id: int,
+        start_date: datetime,
+        end_date: datetime,
+        schedules: list[dict],
+    ) -> list[dict]:
+        start_day = start_date.date()
+        end_day = end_date.date()
+        generated: list[dict] = []
+
+        for schedule in schedules:
+            target_weekday = self._to_python_weekday(int(schedule["day_of_week"]))
+            cursor = start_day
+            while cursor <= end_day:
+                if cursor.weekday() == target_weekday:
+                    start_time, end_time = self._compute_period_times(
+                        reference_date=datetime.combine(cursor, time.min),
+                        start_period=int(schedule["start_period"]),
+                        number_of_periods=int(schedule["number_of_periods"]),
+                    )
+                    generated.append(
+                        {
+                            "course_section_id": section_id,
+                            "room_id": schedule.get("room_id"),
+                            "session_date": datetime.combine(cursor, time.min),
+                            "start_time": start_time,
+                            "end_time": end_time,
+                            "late_time": None,
+                            "status": SessionStatus.PENDING,
+                            "note": None,
+                            "is_cancel": False,
+                        }
+                    )
+                cursor += timedelta(days=1)
+
+        return generated
+
+    @staticmethod
+    def _session_key(
+        payload: dict,
+    ) -> tuple[date, Optional[int], Optional[datetime], Optional[datetime]]:
+        session_date = payload["session_date"].date()
+        room_id = payload.get("room_id")
+        start_time = payload.get("start_time")
+        end_time = payload.get("end_time")
+        return (session_date, room_id, start_time, end_time)
+
+    async def _sync_class_sessions(
+        self,
+        *,
+        section_id: int,
+        start_date: datetime,
+        end_date: datetime,
+        schedules: list[dict],
+    ) -> None:
+        target_sessions = self._build_session_payloads(
+            section_id=section_id,
+            start_date=start_date,
+            end_date=end_date,
+            schedules=schedules,
+        )
+        if not target_sessions:
+            return
+
+        existing = await self.repo.list_class_sessions(section_id)
+        existing_keys = {
+            (
+                item.session_date.date(),
+                item.room_id,
+                item.start_time,
+                item.end_time,
+            )
+            for item in existing
+        }
+
+        to_create = [
+            payload
+            for payload in target_sessions
+            if self._session_key(payload) not in existing_keys
+        ]
+
+        await self.repo.create_class_sessions(to_create)
 
     @staticmethod
     def _weekday_label(day_of_week: int) -> str:
@@ -575,8 +676,21 @@ class CourseSectionService(ICourseSectionService):
         data["name"] = normalized_name
         data["is_cancel"] = False
 
-        created = await self.repo.create(data)
+        try:
+            created = await self.repo.create(data)
+        except IntegrityError as exc:
+            if self._is_name_unique_violation(exc):
+                raise AlreadyExists(
+                    ERROR_CODES.COURSE_SECTION.COURSE_SECTION_NAME_IS_EXISTED
+                ) from exc
+            raise
         await self.repo.replace_schedules(created.id, schedules)
+        await self._sync_class_sessions(
+            section_id=created.id,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            schedules=schedules,
+        )
         refreshed = await self.repo.get_by_id(created.id)
         return refreshed if refreshed is not None else created
 
@@ -656,8 +770,21 @@ class CourseSectionService(ICourseSectionService):
         data["end_time"] = first_schedule.get("end_time")
         data["room_id"] = first_schedule["room_id"]
 
-        updated = await self.repo.update(item, data)
+        try:
+            updated = await self.repo.update(item, data)
+        except IntegrityError as exc:
+            if self._is_name_unique_violation(exc):
+                raise AlreadyExists(
+                    ERROR_CODES.COURSE_SECTION.COURSE_SECTION_NAME_IS_EXISTED
+                ) from exc
+            raise
         await self.repo.replace_schedules(updated.id, schedules)
+        await self._sync_class_sessions(
+            section_id=updated.id,
+            start_date=start_date,
+            end_date=end_date,
+            schedules=schedules,
+        )
         refreshed = await self.repo.get_by_id(updated.id)
         return refreshed if refreshed is not None else updated
 
