@@ -103,6 +103,9 @@ async def api_exception_handler(_request, exc: ApiError):
     if exc.message:
         response["message"] = exc.message
 
+    if exc.details is not None:
+        response["details"] = exc.details
+
     return JSONResponse(
         status_code=exc.status_code,
         content=response,

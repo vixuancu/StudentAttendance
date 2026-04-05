@@ -1,9 +1,13 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional
 
 from src.db.models.classroom import Classroom
+from src.db.models.class_session import ClassSession
 from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
+from src.db.models.enrollment import Enrollment
+from src.db.models.student import Student
 from src.db.models.user import User
 
 
@@ -24,11 +28,17 @@ class ICourseSectionRepository(ABC):
         limit: int,
         search: str | None,
         is_cancel: bool | None,
+        lecturer_id: int | None = None,
     ) -> list[tuple[CourseSection, int]]:
         pass
 
     @abstractmethod
-    async def count_sections(self, search: str | None, is_cancel: bool | None) -> int:
+    async def count_sections(
+        self,
+        search: str | None,
+        is_cancel: bool | None,
+        lecturer_id: int | None = None,
+    ) -> int:
         pass
 
     @abstractmethod
@@ -41,6 +51,34 @@ class ICourseSectionRepository(ABC):
 
     @abstractmethod
     async def get_lecturer_by_id(self, user_id: int) -> Optional[User]:
+        pass
+
+    @abstractmethod
+    async def get_lecturer_schedule_conflict(
+        self,
+        *,
+        user_id: int,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+        exclude_section_id: Optional[int] = None,
+    ) -> Optional[CourseSection]:
+        pass
+
+    @abstractmethod
+    async def get_room_schedule_conflict(
+        self,
+        *,
+        room_id: int,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+        exclude_section_id: Optional[int] = None,
+    ) -> Optional[CourseSection]:
         pass
 
     @abstractmethod
@@ -64,5 +102,64 @@ class ICourseSectionRepository(ABC):
         pass
 
     @abstractmethod
+    async def replace_schedules(
+        self,
+        section_id: int,
+        schedules: list[dict],
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def list_class_sessions(self, section_id: int) -> list[ClassSession]:
+        pass
+
+    @abstractmethod
+    async def create_class_sessions(self, sessions: list[dict]) -> None:
+        pass
+
+    @abstractmethod
     async def soft_delete(self, db_obj: CourseSection) -> CourseSection:
+        pass
+
+    @abstractmethod
+    async def list_enrolled_students(
+        self,
+        section_id: int,
+        skip: int,
+        limit: int,
+        search: str | None,
+    ) -> list[Student]:
+        pass
+
+    @abstractmethod
+    async def count_enrolled_students(self, section_id: int, search: str | None) -> int:
+        pass
+
+    @abstractmethod
+    async def get_student_by_id(self, student_id: int) -> Optional[Student]:
+        pass
+
+    @abstractmethod
+    async def get_student_by_code_ci(self, student_code: str) -> Optional[Student]:
+        pass
+
+    @abstractmethod
+    async def get_enrollment(
+        self,
+        student_id: int,
+        section_id: int,
+        include_cancel: bool = False,
+    ) -> Optional[Enrollment]:
+        pass
+
+    @abstractmethod
+    async def create_enrollment(self, student_id: int, section_id: int) -> Enrollment:
+        pass
+
+    @abstractmethod
+    async def restore_enrollment(self, enrollment: Enrollment) -> Enrollment:
+        pass
+
+    @abstractmethod
+    async def soft_delete_enrollment(self, enrollment: Enrollment) -> Enrollment:
         pass

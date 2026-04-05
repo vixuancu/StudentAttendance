@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CourseSectionResponse(BaseModel):
@@ -22,6 +22,30 @@ class CourseSectionResponse(BaseModel):
     end_time: Optional[datetime] = None
     hoc_ky: str
     si_so: int
+    is_cancel: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    schedules: list["CourseSectionScheduleResponse"] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class CourseSectionScheduleResponse(BaseModel):
+    id: int
+    course_section_id: int
+    user_id: Optional[int] = None
+    user_full_name: Optional[str] = None
+    day_of_week: int
+    day_of_week_label: str
+    start_period: int
+    number_of_periods: int
+    end_period: int
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    room_id: Optional[int] = None
+    room_name: Optional[str] = None
+    display_text: Optional[str] = None
     is_cancel: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

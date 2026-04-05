@@ -4,12 +4,15 @@ from typing import Optional
 from src.db.models.classroom import Classroom
 from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
+from src.db.models.student import Student
 from src.db.models.user import User
 from src.dto.common import PaginationParams
 from src.dto.request.course_section_request import (
+    CourseSectionEnrollmentCreateRequest,
     CourseSectionCreateRequest,
     CourseSectionUpdateRequest,
 )
+from src.dto.response.student_response import StudentImportResultResponse
 
 
 class ICourseSectionService(ABC):
@@ -20,6 +23,7 @@ class ICourseSectionService(ABC):
         pagination: PaginationParams,
         search: Optional[str] = None,
         is_cancel: Optional[bool] = None,
+        lecturer_id: Optional[int] = None,
     ) -> tuple[list[tuple[CourseSection, int]], int]:
         pass
 
@@ -44,5 +48,43 @@ class ICourseSectionService(ABC):
         pass
 
     @abstractmethod
-    async def get_form_options(self) -> tuple[list[Course], list[User], list[Classroom]]:
+    async def get_form_options(
+        self,
+    ) -> tuple[list[Course], list[User], list[Classroom]]:
+        pass
+
+    @abstractmethod
+    async def list_enrolled_students(
+        self,
+        section_id: int,
+        pagination: PaginationParams,
+        search: Optional[str] = None,
+    ) -> tuple[list[Student], int]:
+        pass
+
+    @abstractmethod
+    async def add_student_to_section(
+        self,
+        section_id: int,
+        request: CourseSectionEnrollmentCreateRequest,
+    ) -> Student:
+        pass
+
+    @abstractmethod
+    async def remove_student_from_section(
+        self, section_id: int, student_id: int
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def import_students_from_excel(
+        self,
+        section_id: int,
+        file_content: bytes,
+        filename: str | None = None,
+    ) -> StudentImportResultResponse:
+        pass
+
+    @abstractmethod
+    async def build_student_import_template(self, section_id: int) -> bytes:
         pass
