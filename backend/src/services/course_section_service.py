@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import re
 import unicodedata
@@ -7,6 +7,7 @@ from typing import Optional
 from openpyxl import Workbook, load_workbook
 
 from src.constant.error_code import ERROR_CODES
+from src.constant.schedule_period import PERIOD_1_START_TIME, PERIOD_DURATION_MINUTES
 from src.db.models.course_section import CourseSection
 from src.db.models.student import Student
 from src.dto.common import PaginationParams
@@ -140,6 +141,15 @@ class CourseSectionService(ICourseSectionService):
             if room is None:
                 raise NotFound(ERROR_CODES.CLASSROOM.CLASSROOM_NOT_FOUND)
 
+    async def _validate_schedule_users(
+        self, schedules: list[dict], default_user_id: int
+    ) -> None:
+        user_ids = {int(item.get("user_id") or default_user_id) for item in schedules}
+        for user_id in user_ids:
+            lecturer = await self.repo.get_lecturer_by_id(user_id)
+            if lecturer is None:
+                raise NotFound(ERROR_CODES.COURSE_SECTION.LECTURER_NOT_FOUND)
+
     @staticmethod
     def _validate_time_fields(
         start_date: datetime,
@@ -159,6 +169,353 @@ class CourseSectionService(ICourseSectionService):
                 error_code=ERROR_CODES.COURSE_SECTION.INVALID_TIME_RANGE,
             )
 
+    @staticmethod
+    def _compute_period_times(
+        *,
+        reference_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+    ) -> tuple[datetime, datetime]:
+        if start_period < 1:
+            raise Validation(message="Tiết bắt đầu phải lớn hơn hoặc bằng 1")
+        if number_of_periods < 1:
+            raise Validation(message="Số tiết phải lớn hơn hoặc bằng 1")
+
+        period_1_start = datetime.combine(reference_date.date(), PERIOD_1_START_TIME)
+        start_time = period_1_start + timedelta(
+            minutes=(start_period - 1) * PERIOD_DURATION_MINUTES
+        )
+        end_time = start_time + timedelta(
+            minutes=number_of_periods * PERIOD_DURATION_MINUTES
+        )
+        return start_time, end_time
+
+    def _apply_period_times(
+        self,
+        *,
+        reference_date: datetime,
+        schedules: list[dict],
+    ) -> list[dict]:
+        normalized: list[dict] = []
+        for item in schedules:
+            start_time, end_time = self._compute_period_times(
+                reference_date=reference_date,
+                start_period=int(item["start_period"]),
+                number_of_periods=int(item["number_of_periods"]),
+            )
+            payload = dict(item)
+            payload["start_time"] = start_time
+            payload["end_time"] = end_time
+            normalized.append(payload)
+        return normalized
+
+    @staticmethod
+    def _weekday_label(day_of_week: int) -> str:
+        labels = {
+            2: "Thứ 2",
+            3: "Thứ 3",
+            4: "Thứ 4",
+            5: "Thứ 5",
+            6: "Thứ 6",
+            7: "Thứ 7",
+            8: "Chủ nhật",
+        }
+        return labels.get(day_of_week, f"Thứ {day_of_week}")
+
+    @staticmethod
+    def _format_period_range(
+        start_period: int, number_of_periods: int
+    ) -> dict[str, int]:
+        end_period = start_period + number_of_periods - 1
+        return {
+            "start": start_period,
+            "end": end_period,
+        }
+
+    def _build_conflict_details(
+        self,
+        *,
+        conflict_type: str,
+        request_user_id: int,
+        request_room_id: int,
+        request_day_of_week: int,
+        request_start_date: datetime,
+        request_end_date: datetime,
+        request_start_period: int,
+        request_number_of_periods: int,
+        conflict_section: CourseSection,
+    ) -> dict:
+        requested_period = self._format_period_range(
+            request_start_period,
+            request_number_of_periods,
+        )
+        conflict_period = self._format_period_range(
+            conflict_section.start_period,
+            conflict_section.number_of_periods,
+        )
+        return {
+            "conflict_type": conflict_type,
+            "requested": {
+                "user_id": request_user_id,
+                "room_id": request_room_id,
+                "day_of_week": request_day_of_week,
+                "day_of_week_label": self._weekday_label(request_day_of_week),
+                "date_range": {
+                    "start": request_start_date.date().isoformat(),
+                    "end": request_end_date.date().isoformat(),
+                },
+                "period_range": requested_period,
+                "period_text": f"Tiết {requested_period['start']}-{requested_period['end']}",
+            },
+            "conflict": {
+                "id": conflict_section.id,
+                "name": conflict_section.name,
+                "user_id": conflict_section.user_id,
+                "room_id": conflict_section.room_id,
+                "day_of_week": conflict_section.day_of_week,
+                "day_of_week_label": self._weekday_label(conflict_section.day_of_week),
+                "date_range": {
+                    "start": conflict_section.start_date.date().isoformat(),
+                    "end": conflict_section.end_date.date().isoformat(),
+                },
+                "period_range": conflict_period,
+                "period_text": f"Tiết {conflict_period['start']}-{conflict_period['end']}",
+            },
+        }
+
+    async def _validate_schedule_conflicts(
+        self,
+        *,
+        user_id: int,
+        room_id: int,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+        exclude_section_id: Optional[int] = None,
+    ) -> None:
+        lecturer_conflict = await self.repo.get_lecturer_schedule_conflict(
+            user_id=user_id,
+            day_of_week=day_of_week,
+            start_date=start_date,
+            end_date=end_date,
+            start_period=start_period,
+            number_of_periods=number_of_periods,
+            exclude_section_id=exclude_section_id,
+        )
+        if lecturer_conflict is not None:
+            raise Validation(
+                message=(
+                    "Giảng viên đã có lớp bị trùng lịch "
+                    f"(lớp: {lecturer_conflict.name}, mã: {lecturer_conflict.id})"
+                ),
+                error_code=ERROR_CODES.COURSE_SECTION.LECTURER_SCHEDULE_CONFLICT,
+                details=self._build_conflict_details(
+                    conflict_type="lecturer",
+                    request_user_id=user_id,
+                    request_room_id=room_id,
+                    request_day_of_week=day_of_week,
+                    request_start_date=start_date,
+                    request_end_date=end_date,
+                    request_start_period=start_period,
+                    request_number_of_periods=number_of_periods,
+                    conflict_section=lecturer_conflict,
+                ),
+            )
+
+    @staticmethod
+    def _is_period_overlap(
+        start_period_a: int,
+        number_of_periods_a: int,
+        start_period_b: int,
+        number_of_periods_b: int,
+    ) -> bool:
+        end_a = start_period_a + number_of_periods_a
+        end_b = start_period_b + number_of_periods_b
+        return start_period_a < end_b and end_a > start_period_b
+
+    def _validate_internal_schedule_items(self, schedules: list[dict]) -> None:
+        for i in range(len(schedules)):
+            left = schedules[i]
+            for j in range(i + 1, len(schedules)):
+                right = schedules[j]
+                if left["day_of_week"] != right["day_of_week"]:
+                    continue
+                if not self._is_period_overlap(
+                    left["start_period"],
+                    left["number_of_periods"],
+                    right["start_period"],
+                    right["number_of_periods"],
+                ):
+                    continue
+                if left["room_id"] == right["room_id"]:
+                    raise Validation(
+                        message="Danh sách lịch học trong cùng lớp bị trùng phòng và trùng tiết",
+                    )
+                raise Validation(
+                    message="Danh sách lịch học trong cùng lớp bị trùng tiết",
+                )
+
+    def _normalize_schedules_from_create(
+        self,
+        request: CourseSectionCreateRequest,
+    ) -> list[dict]:
+        if request.schedules:
+            return [
+                {
+                    "day_of_week": item.day_of_week,
+                    "start_period": item.start_period,
+                    "number_of_periods": item.number_of_periods,
+                    "start_time": item.start_time,
+                    "end_time": item.end_time,
+                    "room_id": item.room_id or request.room_id,
+                    "user_id": item.user_id or request.user_id,
+                }
+                for item in request.schedules
+            ]
+
+        return [
+            {
+                "day_of_week": request.day_of_week,
+                "start_period": request.start_period,
+                "number_of_periods": request.number_of_periods,
+                "start_time": request.start_time,
+                "end_time": request.end_time,
+                "room_id": request.room_id,
+                "user_id": request.user_id,
+            }
+        ]
+
+    def _normalize_schedules_from_update(
+        self,
+        *,
+        request: CourseSectionUpdateRequest,
+        item: CourseSection,
+        data: dict,
+    ) -> list[dict]:
+        if request.schedules:
+            default_room_id = data.get("room_id", item.room_id)
+            default_user_id = data.get("user_id", item.user_id)
+            return [
+                {
+                    "day_of_week": s.day_of_week,
+                    "start_period": s.start_period,
+                    "number_of_periods": s.number_of_periods,
+                    "start_time": s.start_time,
+                    "end_time": s.end_time,
+                    "room_id": s.room_id or default_room_id,
+                    "user_id": s.user_id or default_user_id,
+                }
+                for s in request.schedules
+            ]
+
+        legacy_fields = {
+            "day_of_week",
+            "start_period",
+            "number_of_periods",
+            "start_time",
+            "end_time",
+            "room_id",
+        }
+        if any(field in data for field in legacy_fields):
+            return [
+                {
+                    "day_of_week": data.get("day_of_week", item.day_of_week),
+                    "start_period": data.get("start_period", item.start_period),
+                    "number_of_periods": data.get(
+                        "number_of_periods", item.number_of_periods
+                    ),
+                    "start_time": data.get("start_time", item.start_time),
+                    "end_time": data.get("end_time", item.end_time),
+                    "room_id": data.get("room_id", item.room_id),
+                    "user_id": data.get("user_id", item.user_id),
+                }
+            ]
+
+        existing = list(item.schedules or [])
+        if existing:
+            return [
+                {
+                    "day_of_week": s.day_of_week,
+                    "start_period": s.start_period,
+                    "number_of_periods": s.number_of_periods,
+                    "start_time": s.start_time,
+                    "end_time": s.end_time,
+                    "room_id": s.room_id,
+                    "user_id": s.user_id,
+                }
+                for s in existing
+                if not s.is_cancel
+            ]
+
+        return [
+            {
+                "day_of_week": item.day_of_week,
+                "start_period": item.start_period,
+                "number_of_periods": item.number_of_periods,
+                "start_time": item.start_time,
+                "end_time": item.end_time,
+                "room_id": item.room_id,
+                "user_id": item.user_id,
+            }
+        ]
+
+    async def _validate_schedule_rooms(
+        self,
+        *,
+        schedules: list[dict],
+        start_date: datetime,
+        end_date: datetime,
+        default_user_id: int,
+        exclude_section_id: Optional[int] = None,
+    ) -> None:
+        room_ids = {
+            int(item["room_id"])
+            for item in schedules
+            if item.get("room_id") is not None
+        }
+        for room_id in room_ids:
+            room = await self.repo.get_room_by_id(room_id)
+            if room is None:
+                raise NotFound(ERROR_CODES.CLASSROOM.CLASSROOM_NOT_FOUND)
+
+        for schedule in schedules:
+            room_id = int(schedule["room_id"])
+            day_of_week = int(schedule["day_of_week"])
+            start_period = int(schedule["start_period"])
+            number_of_periods = int(schedule["number_of_periods"])
+            request_user_id = int(schedule.get("user_id") or default_user_id)
+
+            room_conflict = await self.repo.get_room_schedule_conflict(
+                room_id=room_id,
+                day_of_week=day_of_week,
+                start_date=start_date,
+                end_date=end_date,
+                start_period=start_period,
+                number_of_periods=number_of_periods,
+                exclude_section_id=exclude_section_id,
+            )
+            if room_conflict is not None:
+                raise Validation(
+                    message=(
+                        "Phòng học đã có lớp bị trùng lịch "
+                        f"(lớp: {room_conflict.name}, mã: {room_conflict.id})"
+                    ),
+                    error_code=ERROR_CODES.COURSE_SECTION.ROOM_SCHEDULE_CONFLICT,
+                    details=self._build_conflict_details(
+                        conflict_type="room",
+                        request_user_id=request_user_id,
+                        request_room_id=room_id,
+                        request_day_of_week=day_of_week,
+                        request_start_date=start_date,
+                        request_end_date=end_date,
+                        request_start_period=start_period,
+                        request_number_of_periods=number_of_periods,
+                        conflict_section=room_conflict,
+                    ),
+                )
+
     async def create(self, request: CourseSectionCreateRequest) -> CourseSection:
         normalized_name = request.name.strip()
         existed = await self.repo.get_by_name_ci(normalized_name)
@@ -173,18 +530,53 @@ class CourseSectionService(ICourseSectionService):
             room_id=request.room_id,
         )
 
-        self._validate_time_fields(
-            start_date=request.start_date,
-            end_date=request.end_date,
-            start_time=request.start_time,
-            end_time=request.end_time,
+        schedules = self._normalize_schedules_from_create(request)
+        if not schedules:
+            raise Validation(message="Lớp tín chỉ phải có ít nhất một lịch học")
+        schedules = self._apply_period_times(
+            reference_date=request.start_date,
+            schedules=schedules,
         )
 
-        data = request.model_dump()
+        self._validate_internal_schedule_items(schedules)
+        await self._validate_schedule_users(schedules, request.user_id)
+        await self._validate_schedule_rooms(
+            schedules=schedules,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            default_user_id=request.user_id,
+        )
+
+        for schedule in schedules:
+            self._validate_time_fields(
+                start_date=request.start_date,
+                end_date=request.end_date,
+                start_time=schedule.get("start_time"),
+                end_time=schedule.get("end_time"),
+            )
+            await self._validate_schedule_conflicts(
+                user_id=int(schedule.get("user_id") or request.user_id),
+                room_id=int(schedule["room_id"]),
+                day_of_week=int(schedule["day_of_week"]),
+                start_date=request.start_date,
+                end_date=request.end_date,
+                start_period=int(schedule["start_period"]),
+                number_of_periods=int(schedule["number_of_periods"]),
+            )
+
+        data = request.model_dump(exclude={"schedules"})
+        first_schedule = schedules[0]
+        data["day_of_week"] = first_schedule["day_of_week"]
+        data["start_period"] = first_schedule["start_period"]
+        data["number_of_periods"] = first_schedule["number_of_periods"]
+        data["start_time"] = first_schedule.get("start_time")
+        data["end_time"] = first_schedule.get("end_time")
+        data["room_id"] = first_schedule["room_id"]
         data["name"] = normalized_name
         data["is_cancel"] = False
 
         created = await self.repo.create(data)
+        await self.repo.replace_schedules(created.id, schedules)
         refreshed = await self.repo.get_by_id(created.id)
         return refreshed if refreshed is not None else created
 
@@ -194,7 +586,7 @@ class CourseSectionService(ICourseSectionService):
         request: CourseSectionUpdateRequest,
     ) -> CourseSection:
         item = await self.get_by_id(section_id)
-        data = request.model_dump(exclude_unset=True)
+        data = request.model_dump(exclude_unset=True, exclude={"schedules"})
 
         if "name" in data and data["name"] is not None:
             normalized_name = data["name"].strip()
@@ -213,11 +605,59 @@ class CourseSectionService(ICourseSectionService):
 
         start_date = data.get("start_date", item.start_date)
         end_date = data.get("end_date", item.end_date)
-        start_time = data.get("start_time", item.start_time)
-        end_time = data.get("end_time", item.end_time)
-        self._validate_time_fields(start_date, end_date, start_time, end_time)
+        user_id = data.get("user_id", item.user_id)
+
+        schedules = self._normalize_schedules_from_update(
+            request=request,
+            item=item,
+            data=data,
+        )
+        if not schedules:
+            raise Validation(message="Lớp tín chỉ phải có ít nhất một lịch học")
+        schedules = self._apply_period_times(
+            reference_date=start_date,
+            schedules=schedules,
+        )
+
+        self._validate_internal_schedule_items(schedules)
+        await self._validate_schedule_users(schedules, user_id)
+        await self._validate_schedule_rooms(
+            schedules=schedules,
+            start_date=start_date,
+            end_date=end_date,
+            default_user_id=user_id,
+            exclude_section_id=item.id,
+        )
+
+        for schedule in schedules:
+            self._validate_time_fields(
+                start_date=start_date,
+                end_date=end_date,
+                start_time=schedule.get("start_time"),
+                end_time=schedule.get("end_time"),
+            )
+
+            await self._validate_schedule_conflicts(
+                user_id=int(schedule.get("user_id") or user_id),
+                room_id=int(schedule["room_id"]),
+                day_of_week=int(schedule["day_of_week"]),
+                start_date=start_date,
+                end_date=end_date,
+                start_period=int(schedule["start_period"]),
+                number_of_periods=int(schedule["number_of_periods"]),
+                exclude_section_id=item.id,
+            )
+
+        first_schedule = schedules[0]
+        data["day_of_week"] = first_schedule["day_of_week"]
+        data["start_period"] = first_schedule["start_period"]
+        data["number_of_periods"] = first_schedule["number_of_periods"]
+        data["start_time"] = first_schedule.get("start_time")
+        data["end_time"] = first_schedule.get("end_time")
+        data["room_id"] = first_schedule["room_id"]
 
         updated = await self.repo.update(item, data)
+        await self.repo.replace_schedules(updated.id, schedules)
         refreshed = await self.repo.get_by_id(updated.id)
         return refreshed if refreshed is not None else updated
 

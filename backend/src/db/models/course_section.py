@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from src.db.models.user import User
     from src.db.models.enrollment import Enrollment
     from src.db.models.class_session import ClassSession
+    from src.db.models.course_section_schedule import CourseSectionSchedule
 
 
 class CourseSection(Base):
@@ -61,5 +62,8 @@ class CourseSection(Base):
         back_populates="course_section"
     )
     class_sessions: Mapped[list["ClassSession"]] = relationship(
+        back_populates="course_section"
+    )
+    schedules: Mapped[list["CourseSectionSchedule"]] = relationship(
         back_populates="course_section"
     )

@@ -18,6 +18,7 @@ from src.db.models.student_face import StudentFace
 from src.db.models.enrollment import Enrollment
 from src.db.models.class_session import ClassSession
 from src.db.models.attendance import Attendance
+from src.db.models.course_section_schedule import CourseSectionSchedule
 
 __all__ = [
     # Enums / Constants
@@ -40,4 +41,5 @@ __all__ = [
     "Enrollment",
     "ClassSession",
     "Attendance",
+    "CourseSectionSchedule",
 ]

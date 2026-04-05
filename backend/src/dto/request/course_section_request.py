@@ -4,6 +4,22 @@ from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 
 
+class CourseSectionScheduleItemRequest(BaseModel):
+    day_of_week: int = Field(..., ge=2, le=8)
+    start_period: int = Field(..., ge=1)
+    number_of_periods: int = Field(..., ge=1)
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    user_id: Optional[int] = Field(None, ge=1)
+    room_id: Optional[int] = Field(None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
+            raise ValueError("start_time must be before end_time")
+        return self
+
+
 class CourseSectionCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     course_id: int = Field(..., ge=1)
@@ -16,6 +32,7 @@ class CourseSectionCreateRequest(BaseModel):
     number_of_periods: int = Field(..., ge=1)
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    schedules: Optional[list[CourseSectionScheduleItemRequest]] = None
 
     @model_validator(mode="after")
     def validate_time_range(self):
@@ -40,6 +57,7 @@ class CourseSectionUpdateRequest(BaseModel):
     number_of_periods: Optional[int] = Field(None, ge=1)
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    schedules: Optional[list[CourseSectionScheduleItemRequest]] = None
     is_cancel: Optional[bool] = None
 
     @model_validator(mode="after")

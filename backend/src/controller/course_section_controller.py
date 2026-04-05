@@ -12,6 +12,7 @@ from src.dto.response.course_section_response import (
     CourseSectionFormOptionsResponse,
     CourseSectionOptionResponse,
     CourseSectionResponse,
+    CourseSectionScheduleResponse,
 )
 from src.dto.response.student_response import StudentResponse
 from src.dto.response.student_response import StudentImportResultResponse
@@ -27,6 +28,19 @@ class CourseSectionController:
     def _resolve_semester(start_date: datetime, end_date: datetime) -> str:
         semester = 1 if start_date.month <= 6 else 2
         return f"{start_date.year}-{end_date.year}.{semester}"
+
+    @staticmethod
+    def _resolve_day_label(day_of_week: int) -> str:
+        labels = {
+            2: "Thứ 2",
+            3: "Thứ 3",
+            4: "Thứ 4",
+            5: "Thứ 5",
+            6: "Thứ 6",
+            7: "Thứ 7",
+            8: "Chủ nhật",
+        }
+        return labels.get(day_of_week, f"Thứ {day_of_week}")
 
     @classmethod
     def _to_response(
@@ -53,6 +67,34 @@ class CourseSectionController:
             is_cancel=section.is_cancel,
             created_at=section.created_at,
             updated_at=section.updated_at,
+            schedules=[
+                CourseSectionScheduleResponse(
+                    id=schedule.id,
+                    course_section_id=schedule.course_section_id,
+                    user_id=schedule.user_id,
+                    user_full_name=schedule.user.full_name if schedule.user else None,
+                    day_of_week=schedule.day_of_week,
+                    day_of_week_label=cls._resolve_day_label(schedule.day_of_week),
+                    start_period=schedule.start_period,
+                    number_of_periods=schedule.number_of_periods,
+                    end_period=schedule.start_period + schedule.number_of_periods - 1,
+                    start_time=schedule.start_time,
+                    end_time=schedule.end_time,
+                    room_id=schedule.room_id,
+                    room_name=schedule.room.class_name if schedule.room else None,
+                    display_text=(
+                        f"{cls._resolve_day_label(schedule.day_of_week)} - "
+                        f"Tiết {schedule.start_period}-{schedule.start_period + schedule.number_of_periods - 1}"
+                    ),
+                    is_cancel=schedule.is_cancel,
+                    created_at=schedule.created_at,
+                    updated_at=schedule.updated_at,
+                )
+                for schedule in sorted(
+                    [s for s in (section.schedules or []) if not s.is_cancel],
+                    key=lambda s: (s.day_of_week, s.start_period, s.id),
+                )
+            ],
         )
 
     async def list_sections(

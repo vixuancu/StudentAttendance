@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from src.db.models.camera import Camera
     from src.db.models.course_section import CourseSection
     from src.db.models.class_session import ClassSession
+    from src.db.models.course_section_schedule import CourseSectionSchedule
 
 
 class Classroom(Base):
@@ -29,3 +30,6 @@ class Classroom(Base):
     )
     course_sections: Mapped[list["CourseSection"]] = relationship(back_populates="room")
     class_sessions: Mapped[list["ClassSession"]] = relationship(back_populates="room")
+    course_section_schedules: Mapped[list["CourseSectionSchedule"]] = relationship(
+        back_populates="room"
+    )

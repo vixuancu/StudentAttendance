@@ -1,13 +1,19 @@
-from typing import Optional
+from typing import Any, Optional
 
 
 class ApiError(Exception):
     status_code: int = 500
     default_error_code: str = "INTERNAL_SERVER_ERROR"
 
-    def __init__(self, error_code: Optional[str] = None, message: Optional[str] = None):
+    def __init__(
+        self,
+        error_code: Optional[str] = None,
+        message: Optional[str] = None,
+        details: Optional[dict[str, Any] | list[Any]] = None,
+    ):
         self.error_code = error_code or self.default_error_code
         self.message = message
+        self.details = details
         super().__init__(self.message)
 
 
@@ -20,8 +26,9 @@ class NotFound(ApiError):
         self,
         error_code: Optional[str] = None,
         message: Optional[str] = None,
+        details: Optional[dict[str, Any] | list[Any]] = None,
     ):
-        super().__init__(error_code=error_code, message=message)
+        super().__init__(error_code=error_code, message=message, details=details)
 
 
 class AlreadyExists(ApiError):
@@ -33,8 +40,9 @@ class AlreadyExists(ApiError):
         self,
         error_code: Optional[str] = None,
         message: Optional[str] = None,
+        details: Optional[dict[str, Any] | list[Any]] = None,
     ):
-        super().__init__(error_code=error_code, message=message)
+        super().__init__(error_code=error_code, message=message, details=details)
 
 
 class Validation(ApiError):
@@ -46,8 +54,9 @@ class Validation(ApiError):
         self,
         message: Optional[str] = None,
         error_code: Optional[str] = None,
+        details: Optional[dict[str, Any] | list[Any]] = None,
     ):
-        super().__init__(error_code=error_code, message=message)
+        super().__init__(error_code=error_code, message=message, details=details)
 
 
 class Unauthorized(ApiError):
@@ -58,8 +67,9 @@ class Unauthorized(ApiError):
         self,
         message: Optional[str] = None,
         error_code: Optional[str] = None,
+        details: Optional[dict[str, Any] | list[Any]] = None,
     ):
-        super().__init__(error_code=error_code, message=message)
+        super().__init__(error_code=error_code, message=message, details=details)
 
 
 class Forbidden(ApiError):
@@ -71,5 +81,6 @@ class Forbidden(ApiError):
         self,
         message: Optional[str] = None,
         error_code: Optional[str] = None,
+        details: Optional[dict[str, Any] | list[Any]] = None,
     ):
-        super().__init__(error_code=error_code, message=message)
+        super().__init__(error_code=error_code, message=message, details=details)

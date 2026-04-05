@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional
 
 from src.db.models.classroom import Classroom
@@ -50,6 +51,34 @@ class ICourseSectionRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_lecturer_schedule_conflict(
+        self,
+        *,
+        user_id: int,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+        exclude_section_id: Optional[int] = None,
+    ) -> Optional[CourseSection]:
+        pass
+
+    @abstractmethod
+    async def get_room_schedule_conflict(
+        self,
+        *,
+        room_id: int,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+        exclude_section_id: Optional[int] = None,
+    ) -> Optional[CourseSection]:
+        pass
+
+    @abstractmethod
     async def list_course_options(self) -> list[Course]:
         pass
 
@@ -67,6 +96,14 @@ class ICourseSectionRepository(ABC):
 
     @abstractmethod
     async def update(self, db_obj: CourseSection, data: dict) -> CourseSection:
+        pass
+
+    @abstractmethod
+    async def replace_schedules(
+        self,
+        section_id: int,
+        schedules: list[dict],
+    ) -> None:
         pass
 
     @abstractmethod

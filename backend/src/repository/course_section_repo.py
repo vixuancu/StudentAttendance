@@ -1,10 +1,13 @@
-from sqlalchemy import func, select
+from datetime import datetime
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.db.models.classroom import Classroom
 from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
+from src.db.models.course_section_schedule import CourseSectionSchedule
 from src.db.models.enrollment import Enrollment
 from src.db.models.role import Role
 from src.db.models.student import Student
@@ -25,6 +28,12 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
                 selectinload(CourseSection.course),
                 selectinload(CourseSection.user),
                 selectinload(CourseSection.room),
+                selectinload(CourseSection.schedules).selectinload(
+                    CourseSectionSchedule.user
+                ),
+                selectinload(CourseSection.schedules).selectinload(
+                    CourseSectionSchedule.room
+                ),
             )
             .where(CourseSection.id == section_id)
         )
@@ -60,6 +69,12 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
                 selectinload(CourseSection.course),
                 selectinload(CourseSection.user),
                 selectinload(CourseSection.room),
+                selectinload(CourseSection.schedules).selectinload(
+                    CourseSectionSchedule.user
+                ),
+                selectinload(CourseSection.schedules).selectinload(
+                    CourseSectionSchedule.room
+                ),
             )
             .join(Course, Course.id == CourseSection.course_id)
             .join(User, User.id == CourseSection.user_id)
@@ -126,6 +141,134 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
             )
         )
         return result.scalar_one_or_none()
+
+    @staticmethod
+    def _build_schedule_overlap_filters(
+        *,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+    ):
+        new_end_period = start_period + number_of_periods
+        existing_end_period = (
+            CourseSectionSchedule.start_period + CourseSectionSchedule.number_of_periods
+        )
+        return (
+            CourseSection.is_cancel.is_(False),
+            CourseSectionSchedule.is_cancel.is_(False),
+            CourseSectionSchedule.day_of_week == day_of_week,
+            CourseSection.start_date <= end_date,
+            CourseSection.end_date >= start_date,
+            CourseSectionSchedule.start_period < new_end_period,
+            existing_end_period > start_period,
+        )
+
+    async def get_lecturer_schedule_conflict(
+        self,
+        *,
+        user_id: int,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+        exclude_section_id: int | None = None,
+    ):
+        query = (
+            select(CourseSection)
+            .join(
+                CourseSectionSchedule,
+                CourseSectionSchedule.course_section_id == CourseSection.id,
+            )
+            .where(
+                CourseSectionSchedule.user_id == user_id,
+                *self._build_schedule_overlap_filters(
+                    day_of_week=day_of_week,
+                    start_date=start_date,
+                    end_date=end_date,
+                    start_period=start_period,
+                    number_of_periods=number_of_periods,
+                ),
+            )
+            .order_by(CourseSection.created_at.desc(), CourseSection.id.desc())
+        )
+
+        if exclude_section_id is not None:
+            query = query.where(CourseSection.id != exclude_section_id)
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_room_schedule_conflict(
+        self,
+        *,
+        room_id: int,
+        day_of_week: int,
+        start_date: datetime,
+        end_date: datetime,
+        start_period: int,
+        number_of_periods: int,
+        exclude_section_id: int | None = None,
+    ):
+        query = (
+            select(CourseSection)
+            .join(
+                CourseSectionSchedule,
+                CourseSectionSchedule.course_section_id == CourseSection.id,
+            )
+            .where(
+                CourseSectionSchedule.room_id == room_id,
+                *self._build_schedule_overlap_filters(
+                    day_of_week=day_of_week,
+                    start_date=start_date,
+                    end_date=end_date,
+                    start_period=start_period,
+                    number_of_periods=number_of_periods,
+                ),
+            )
+            .order_by(CourseSection.created_at.desc(), CourseSection.id.desc())
+        )
+
+        if exclude_section_id is not None:
+            query = query.where(CourseSection.id != exclude_section_id)
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def replace_schedules(
+        self,
+        section_id: int,
+        schedules: list[dict],
+    ) -> None:
+        await self.db.execute(
+            delete(CourseSectionSchedule).where(
+                CourseSectionSchedule.course_section_id == section_id
+            )
+        )
+
+        if not schedules:
+            await self.db.flush()
+            return
+
+        objects = []
+        for item in schedules:
+            payload = {
+                "course_section_id": section_id,
+                "user_id": item.get("user_id"),
+                "day_of_week": item["day_of_week"],
+                "start_period": item["start_period"],
+                "number_of_periods": item["number_of_periods"],
+                "start_time": item.get("start_time"),
+                "end_time": item.get("end_time"),
+                "room_id": item.get("room_id"),
+                "is_cancel": bool(item.get("is_cancel", False)),
+            }
+            objects.append(CourseSectionSchedule(**payload))
+
+        self.db.add_all(objects)
+        await self.db.flush()
 
     async def list_course_options(self):
         result = await self.db.execute(
