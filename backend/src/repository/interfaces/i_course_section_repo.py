@@ -118,6 +118,26 @@ class ICourseSectionRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_class_session_by_id(
+        self,
+        section_id: int,
+        session_id: int,
+    ) -> Optional[ClassSession]:
+        pass
+
+    @abstractmethod
+    async def list_generated_sessions(self, section_id: int) -> list[ClassSession]:
+        pass
+
+    @abstractmethod
+    async def update_class_session(
+        self,
+        db_obj: ClassSession,
+        data: dict,
+    ) -> ClassSession:
+        pass
+
+    @abstractmethod
     async def soft_delete(self, db_obj: CourseSection) -> CourseSection:
         pass
 
