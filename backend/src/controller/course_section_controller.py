@@ -6,6 +6,7 @@ from src.dto.common import DataResponse, ListResponse, PaginationParams
 from src.dto.request.course_section_request import (
     CourseSectionEnrollmentCreateRequest,
     CourseSectionCreateRequest,
+    CourseSectionSessionUpdateRequest,
     CourseSectionUpdateRequest,
 )
 from src.dto.response.course_section_response import (
@@ -13,6 +14,8 @@ from src.dto.response.course_section_response import (
     CourseSectionOptionResponse,
     CourseSectionResponse,
     CourseSectionScheduleResponse,
+    CourseSectionSessionResponse,
+    CourseSectionSessionUpdateResponse,
 )
 from src.dto.response.student_response import StudentResponse
 from src.dto.response.student_response import StudentImportResultResponse
@@ -41,6 +44,17 @@ class CourseSectionController:
             8: "Chủ nhật",
         }
         return labels.get(day_of_week, f"Thứ {day_of_week}")
+
+    @staticmethod
+    def _resolve_session_status_label(status: int) -> str:
+        labels = {
+            0: "Chưa bắt đầu",
+            1: "Đang diễn ra",
+            2: "Đã xong",
+            3: "Nghỉ",
+            4: "Bù",
+        }
+        return labels.get(status, "Không xác định")
 
     @classmethod
     def _to_response(
@@ -251,4 +265,57 @@ class CourseSectionController:
         return DataResponse(
             data=result,
             message="Import sinh viên vào lớp tín chỉ hoàn tất",
+        )
+
+    async def list_generated_sessions(
+        self,
+        section_id: int,
+    ) -> ListResponse[CourseSectionSessionResponse]:
+        sessions = await self.service.list_generated_sessions(section_id)
+        return ListResponse(
+            data=[
+                CourseSectionSessionResponse(
+                    id=session.id,
+                    course_section_id=session.course_section_id,
+                    session_date=session.session_date,
+                    start_time=session.start_time,
+                    end_time=session.end_time,
+                    room_id=session.room_id,
+                    room_name=session.room.class_name if session.room else None,
+                    status=session.status or 0,
+                    status_label=self._resolve_session_status_label(
+                        session.status or 0
+                    ),
+                    note=session.note,
+                    is_cancel=session.is_cancel,
+                )
+                for session in sessions
+            ],
+            total=len(sessions),
+            page=1,
+            page_size=len(sessions) if sessions else 0,
+            total_pages=1 if sessions else 0,
+        )
+
+    async def update_generated_session(
+        self,
+        section_id: int,
+        session_id: int,
+        request: CourseSectionSessionUpdateRequest,
+    ) -> DataResponse[CourseSectionSessionUpdateResponse]:
+        session = await self.service.update_generated_session(
+            section_id=section_id,
+            session_id=session_id,
+            status=request.status,
+            note=request.note,
+        )
+        status_value = session.status or 0
+        return DataResponse(
+            data=CourseSectionSessionUpdateResponse(
+                id=session.id,
+                status=status_value,
+                status_label=self._resolve_session_status_label(status_value),
+                note=session.note,
+            ),
+            message="Cập nhật buổi học thành công",
         )

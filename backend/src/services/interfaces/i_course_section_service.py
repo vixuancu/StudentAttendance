@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from src.db.models.classroom import Classroom
+from src.db.models.class_session import ClassSession
 from src.db.models.course import Course
 from src.db.models.course_section import CourseSection
 from src.db.models.student import Student
@@ -87,4 +88,18 @@ class ICourseSectionService(ABC):
 
     @abstractmethod
     async def build_student_import_template(self, section_id: int) -> bytes:
+        pass
+
+    @abstractmethod
+    async def list_generated_sessions(self, section_id: int) -> list[ClassSession]:
+        pass
+
+    @abstractmethod
+    async def update_generated_session(
+        self,
+        section_id: int,
+        session_id: int,
+        status: int,
+        note: str | None,
+    ) -> ClassSession:
         pass

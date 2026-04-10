@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from src.constant.error_code import ERROR_CODES
 from src.constant.schedule_period import PERIOD_1_START_TIME, PERIOD_DURATION_MINUTES
 from src.db.models.enums import SessionStatus
+from src.db.models.class_session import ClassSession
 from src.db.models.course_section import CourseSection
 from src.db.models.student import Student
 from src.dto.common import PaginationParams
@@ -238,6 +239,7 @@ class CourseSectionService(ICourseSectionService):
     ) -> list[dict]:
         start_day = start_date.date()
         end_day = end_date.date()
+        now = datetime.now()
         generated: list[dict] = []
 
         for schedule in schedules:
@@ -250,6 +252,11 @@ class CourseSectionService(ICourseSectionService):
                         start_period=int(schedule["start_period"]),
                         number_of_periods=int(schedule["number_of_periods"]),
                     )
+                    status = (
+                        SessionStatus.CLOSED
+                        if end_time <= now
+                        else SessionStatus.PENDING
+                    )
                     generated.append(
                         {
                             "course_section_id": section_id,
@@ -258,7 +265,7 @@ class CourseSectionService(ICourseSectionService):
                             "start_time": start_time,
                             "end_time": end_time,
                             "late_time": None,
-                            "status": SessionStatus.PENDING,
+                            "status": status,
                             "note": None,
                             "is_cancel": False,
                         }
@@ -1004,3 +1011,33 @@ class CourseSectionService(ICourseSectionService):
             failed_count=failed_count,
             errors=errors,
         )
+
+    async def list_generated_sessions(self, section_id: int) -> list[ClassSession]:
+        await self.get_by_id(section_id)
+        return await self.repo.list_generated_sessions(section_id)
+
+    async def update_generated_session(
+        self,
+        section_id: int,
+        session_id: int,
+        status: int,
+        note: str | None,
+    ) -> ClassSession:
+        await self.get_by_id(section_id)
+        session = await self.repo.get_class_session_by_id(section_id, session_id)
+        if session is None:
+            raise NotFound(ERROR_CODES.COURSE_SECTION.COURSE_SECTION_NOT_FOUND)
+
+        allowed_statuses = {
+            SessionStatus.CLOSED,
+            SessionStatus.CANCELLED,
+            SessionStatus.MAKEUP,
+        }
+        if status not in allowed_statuses:
+            raise Validation(message="Trạng thái buổi học không hợp lệ")
+
+        payload = {
+            "status": status,
+            "note": (note or None),
+        }
+        return await self.repo.update_class_session(session, payload)

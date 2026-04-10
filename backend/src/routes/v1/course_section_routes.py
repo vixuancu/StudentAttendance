@@ -10,11 +10,14 @@ from src.dto.common import DataResponse, ListResponse, PaginationParams
 from src.dto.request.course_section_request import (
     CourseSectionEnrollmentCreateRequest,
     CourseSectionCreateRequest,
+    CourseSectionSessionUpdateRequest,
     CourseSectionUpdateRequest,
 )
 from src.dto.response.course_section_response import (
     CourseSectionFormOptionsResponse,
     CourseSectionResponse,
+    CourseSectionSessionResponse,
+    CourseSectionSessionUpdateResponse,
 )
 from src.dto.response.student_response import StudentResponse
 from src.dto.response.student_response import StudentImportResultResponse
@@ -161,3 +164,28 @@ async def remove_student_from_course_section(
     ctrl: CourseSectionController = Depends(get_course_section_controller),
 ):
     return await ctrl.remove_student_from_section(section_id, student_id)
+
+
+@router.get(
+    "/{section_id}/sessions", response_model=ListResponse[CourseSectionSessionResponse]
+)
+async def get_generated_sessions(
+    section_id: int,
+    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    ctrl: CourseSectionController = Depends(get_course_section_controller),
+):
+    return await ctrl.list_generated_sessions(section_id)
+
+
+@router.patch(
+    "/{section_id}/sessions/{session_id}",
+    response_model=DataResponse[CourseSectionSessionUpdateResponse],
+)
+async def update_generated_session(
+    section_id: int,
+    session_id: int,
+    request: CourseSectionSessionUpdateRequest,
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: CourseSectionController = Depends(get_course_section_controller),
+):
+    return await ctrl.update_generated_session(section_id, session_id, request)

@@ -63,3 +63,30 @@ class CourseSectionFormOptionsResponse(BaseModel):
     courses: list[CourseSectionOptionResponse]
     lecturers: list[CourseSectionOptionResponse]
     rooms: list[CourseSectionOptionResponse]
+
+
+class CourseSectionSessionResponse(BaseModel):
+    id: int
+    course_section_id: int
+    session_date: datetime
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    room_id: Optional[int] = None
+    room_name: Optional[str] = None
+    status: int
+    status_label: str
+    note: Optional[str] = None
+    is_cancel: bool
+
+    class Config:
+        from_attributes = True
+
+
+class CourseSectionSessionUpdateResponse(BaseModel):
+    id: int
+    status: int
+    status_label: str
+    note: Optional[str] = None
+
+    class Config:
+        from_attributes = True

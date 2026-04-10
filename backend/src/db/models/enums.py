@@ -6,18 +6,21 @@ Dùng integer mapping để đồng bộ với SmallInteger trong DB.
 
 class Gender:
     """Giới tính: False=Nữ, True=Nam"""
+
     FEMALE = False
     MALE = True
 
 
 class CameraStatus:
     """Trạng thái camera: 0=Offline, 1=Online"""
+
     OFFLINE = 0
     ONLINE = 1
 
 
 class DayOfWeek:
     """Thứ trong tuần: 2=Thứ 2, ..., 8=Chủ nhật"""
+
     MON = 2
     TUE = 3
     WED = 4
@@ -28,15 +31,18 @@ class DayOfWeek:
 
 
 class SessionStatus:
-    """Trạng thái buổi học: 0=Chưa bắt đầu, 1=Đang diễn ra, 2=Kết thúc, 3=Hủy"""
+    """Trạng thái buổi học: 0=Chưa bắt đầu, 1=Đang diễn ra, 2=Kết thúc, 3=Nghỉ, 4=Bù"""
+
     PENDING = 0
     ACTIVE = 1
     CLOSED = 2
     CANCELLED = 3
+    MAKEUP = 4
 
 
 class AttendanceStatus:
     """Trạng thái điểm danh: 0=Vắng, 1=Có mặt, 2=Trễ, 3=Có phép"""
+
     ABSENT = 0
     PRESENT = 1
     LATE = 2
@@ -45,5 +51,6 @@ class AttendanceStatus:
 
 class CancelStatus:
     """Soft delete: False=Active, True=Cancelled"""
+
     ACTIVE = False
     CANCELLED = True

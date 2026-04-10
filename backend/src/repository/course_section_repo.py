@@ -299,6 +299,45 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
         self.db.add_all(objects)
         await self.db.flush()
 
+    async def get_class_session_by_id(
+        self,
+        section_id: int,
+        session_id: int,
+    ) -> ClassSession | None:
+        result = await self.db.execute(
+            select(ClassSession)
+            .options(selectinload(ClassSession.room))
+            .where(
+                ClassSession.id == session_id,
+                ClassSession.course_section_id == section_id,
+                ClassSession.is_cancel.is_(False),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_generated_sessions(self, section_id: int) -> list[ClassSession]:
+        result = await self.db.execute(
+            select(ClassSession)
+            .options(selectinload(ClassSession.room))
+            .where(
+                ClassSession.course_section_id == section_id,
+                ClassSession.is_cancel.is_(False),
+            )
+            .order_by(
+                ClassSession.session_date.asc(),
+                ClassSession.start_time.asc(),
+                ClassSession.id.asc(),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def update_class_session(
+        self,
+        db_obj: ClassSession,
+        data: dict,
+    ) -> ClassSession:
+        return await self.update(db_obj, data)
+
     async def list_course_options(self):
         result = await self.db.execute(
             select(Course)

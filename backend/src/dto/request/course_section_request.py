@@ -81,3 +81,8 @@ class CourseSectionUpdateRequest(BaseModel):
 
 class CourseSectionEnrollmentCreateRequest(BaseModel):
     student_id: int = Field(..., ge=1)
+
+
+class CourseSectionSessionUpdateRequest(BaseModel):
+    status: int = Field(..., ge=2, le=4)
+    note: Optional[str] = Field(default=None, max_length=500)
