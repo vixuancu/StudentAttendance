@@ -28,20 +28,25 @@ class AuthService(IAuthService):
         self.user_repo = user_repo
 
     async def login(self, request: LoginRequest) -> tuple[User, str]:
-        # 1. Tìm user
-        user = await self.user_repo.get_by_username(request.username)
+        # 1. Tìm user theo username hoặc email
+        login_id = request.username.strip()
+        if "@" in login_id:
+            user = await self.user_repo.get_by_email(login_id.lower())
+        else:
+            user = await self.user_repo.get_by_username(login_id)
+
         if user is None:
-            self.logger.warning("Login failed: user '%s' not found", request.username)
+            self.logger.warning("Login failed: user '%s' not found", login_id)
             raise UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng")
 
         # 2. Kiểm tra password (field đổi từ password_hash → password)
         if not verify_password(request.password, user.password):
-            self.logger.warning("Login failed: wrong password for user '%s'", request.username)
+            self.logger.warning("Login failed: wrong password for user '%s'", login_id)
             raise UnauthorizedException("Tên đăng nhập hoặc mật khẩu không đúng")
 
         # 3. Kiểm tra is_cancel (thay cho is_active)
         if user.is_cancel:
-            self.logger.warning("Login failed: user '%s' is cancelled", request.username)
+            self.logger.warning("Login failed: user '%s' is cancelled", login_id)
             raise UnauthorizedException("Tài khoản đã bị vô hiệu hóa")
 
         # 4. Tạo JWT token
@@ -52,7 +57,7 @@ class AuthService(IAuthService):
         }
         access_token = create_access_token(data=token_data)
 
-        self.logger.info("User '%s' logged in successfully", request.username)
+        self.logger.info("User '%s' logged in successfully", login_id)
         return user, access_token
 
     async def get_current_user(self, user_id: int) -> User:

@@ -2,7 +2,12 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class LoginRequest(BaseModel):
-    username: str = Field(..., min_length=1, max_length=50, description="Tên đăng nhập")
+    username: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Email hoặc tên đăng nhập",
+    )
     password: str = Field(..., min_length=1, max_length=128, description="Mật khẩu")
 
     class Config:
