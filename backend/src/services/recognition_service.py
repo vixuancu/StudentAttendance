@@ -98,7 +98,9 @@ def build_cache_from_rows(rows: list[dict]) -> dict:
     }
 
 
-def match_from_cache(face_embedding: np.ndarray, cache_data: dict, face_quality: float) -> tuple[Optional[dict], float, dict]:
+def match_from_cache(
+    face_embedding: np.ndarray, cache_data: dict, face_quality: float
+) -> tuple[Optional[dict], float, dict]:
     emb_matrix: np.ndarray = cache_data["embeddings"]
     student_ids: list[int] = cache_data["student_ids"]
     metadata: dict = cache_data["metadata"]
@@ -151,11 +153,15 @@ def match_from_cache(face_embedding: np.ndarray, cache_data: dict, face_quality:
         return None, 0.0, debug
 
     debug["reason"] = "matched"
-    return {
-        "student_id": best["student_id"],
-        "student_code": best["student_code"],
-        "full_name": best["full_name"],
-    }, float(best["agg_score"]), debug
+    return (
+        {
+            "student_id": best["student_id"],
+            "student_code": best["student_code"],
+            "full_name": best["full_name"],
+        },
+        float(best["agg_score"]),
+        debug,
+    )
 
 
 def extract_embedding_from_path(image_path: str) -> Optional[np.ndarray]:
@@ -176,7 +182,7 @@ def extract_embedding_from_path(image_path: str) -> Optional[np.ndarray]:
     emb = np.asarray(best.embedding, dtype=np.float32)
     if emb.shape[0] != 512:
         return None
-    return emb
+    return _normalize(emb)
 
 
 def extract_embeddings_from_frame(frame: np.ndarray) -> list[dict]:
@@ -201,7 +207,9 @@ def extract_embeddings_from_frame(frame: np.ndarray) -> list[dict]:
     return results
 
 
-def extract_embeddings_from_crops(crops: list[np.ndarray]) -> list[tuple[Optional[np.ndarray], float]]:
+def extract_embeddings_from_crops(
+    crops: list[np.ndarray],
+) -> list[tuple[Optional[np.ndarray], float]]:
     app = get_face_app()
     rec_model = _get_rec_model()
     outputs = []
@@ -299,7 +307,9 @@ class AIDemoRTSPWorker:
         self._reader_thread = None
         self._encoder_thread = None
         self._processor_thread = None
-        self._capture_preset = self._normalize_capture_preset(settings.ai_demo_rtsp_capture_preset)
+        self._capture_preset = self._normalize_capture_preset(
+            settings.ai_demo_rtsp_capture_preset
+        )
 
     @staticmethod
     def _normalize_capture_preset(raw: str | None) -> str:
@@ -335,7 +345,9 @@ class AIDemoRTSPWorker:
         self.running = True
         self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
         self._encoder_thread = threading.Thread(target=self._encoder_loop, daemon=True)
-        self._processor_thread = threading.Thread(target=self._processor_loop, daemon=True)
+        self._processor_thread = threading.Thread(
+            target=self._processor_loop, daemon=True
+        )
         self._reader_thread.start()
         self._encoder_thread.start()
         self._processor_thread.start()
@@ -344,7 +356,11 @@ class AIDemoRTSPWorker:
         self.running = False
         if self._cap is not None:
             self._cap.release()
-        for thread in (self._reader_thread, self._encoder_thread, self._processor_thread):
+        for thread in (
+            self._reader_thread,
+            self._encoder_thread,
+            self._processor_thread,
+        ):
             if thread:
                 thread.join(timeout=2)
 
@@ -403,7 +419,9 @@ class AIDemoRTSPWorker:
                             runtime_id=self.runtime_id,
                             consecutive=consecutive_read_fail,
                         )
-                    if consecutive_read_fail < max(1, settings.ai_demo_rtsp_read_fail_tolerance):
+                    if consecutive_read_fail < max(
+                        1, settings.ai_demo_rtsp_read_fail_tolerance
+                    ):
                         time.sleep(0.01)
                         continue
                     self.connected = False
@@ -419,7 +437,9 @@ class AIDemoRTSPWorker:
                             consecutive=consecutive_corrupt,
                             capture_preset=self._capture_preset,
                         )
-                    if consecutive_corrupt < max(1, settings.ai_demo_rtsp_corrupt_frame_tolerance):
+                    if consecutive_corrupt < max(
+                        1, settings.ai_demo_rtsp_corrupt_frame_tolerance
+                    ):
                         continue
                     self.connected = False
                     break
@@ -462,16 +482,26 @@ class AIDemoRTSPWorker:
                 continue
 
             with self._lock:
-                frame = self._latest_frame.copy() if self._latest_frame is not None else None
+                frame = (
+                    self._latest_frame.copy()
+                    if self._latest_frame is not None
+                    else None
+                )
 
             if frame is None:
                 continue
 
             h, w = frame.shape[:2]
-            if w > settings.ai_demo_rtsp_frame_width or h > settings.ai_demo_rtsp_frame_height:
+            if (
+                w > settings.ai_demo_rtsp_frame_width
+                or h > settings.ai_demo_rtsp_frame_height
+            ):
                 frame = cv2.resize(
                     frame,
-                    (settings.ai_demo_rtsp_frame_width, settings.ai_demo_rtsp_frame_height),
+                    (
+                        settings.ai_demo_rtsp_frame_width,
+                        settings.ai_demo_rtsp_frame_height,
+                    ),
                     interpolation=cv2.INTER_AREA,
                 )
 
@@ -491,7 +521,11 @@ class AIDemoRTSPWorker:
         while self.running:
             time.sleep(settings.ai_demo_rtsp_process_interval)
             with self._lock:
-                frame = self._latest_frame.copy() if self._latest_frame is not None else None
+                frame = (
+                    self._latest_frame.copy()
+                    if self._latest_frame is not None
+                    else None
+                )
             if frame is None:
                 continue
             try:
@@ -510,7 +544,10 @@ class AIDemoRTSPWorker:
         results = []
 
         stale = [
-            k for k, v in self._pending_confirm.items() if now_ts - v.get("updated_at", 0) > settings.ai_demo_rtsp_confirm_streak_ttl
+            k
+            for k, v in self._pending_confirm.items()
+            if now_ts - v.get("updated_at", 0)
+            > settings.ai_demo_rtsp_confirm_streak_ttl
         ]
         for k in stale:
             self._pending_confirm.pop(k, None)
@@ -522,30 +559,47 @@ class AIDemoRTSPWorker:
             box = item["face_box"]
             size = max(int(box["w"]), int(box["h"]))
 
-            if det_score < settings.ai_demo_rtsp_min_det_score or size < settings.ai_demo_rtsp_min_face_size:
-                results.append({"recognized": False, "status": "focusing", "face_box": box})
+            if (
+                det_score < settings.ai_demo_rtsp_min_det_score
+                or size < settings.ai_demo_rtsp_min_face_size
+            ):
+                results.append(
+                    {"recognized": False, "status": "focusing", "face_box": box}
+                )
                 continue
 
             if quality < settings.ai_demo_rtsp_min_face_quality:
-                results.append({"recognized": False, "status": "focusing", "face_box": box})
+                results.append(
+                    {"recognized": False, "status": "focusing", "face_box": box}
+                )
                 continue
 
             match, score, dbg = match_from_cache(emb, cache, quality)
             margin = float(dbg.get("margin", 0.0)) if isinstance(dbg, dict) else 0.0
 
-            if match is None or score < settings.ai_demo_rtsp_confirm_min_confidence or margin < settings.ai_demo_rtsp_confirm_min_margin:
+            if (
+                match is None
+                or score < settings.ai_demo_rtsp_confirm_min_confidence
+                or margin < settings.ai_demo_rtsp_confirm_min_margin
+            ):
                 if settings.ai_demo_debug_log_verbose:
                     log_ai_demo_event(
                         "rtsp_match_reject",
                         runtime_id=self.runtime_id,
-                        reason=dbg.get("reason") if isinstance(dbg, dict) else "unmatched",
+                        reason=(
+                            dbg.get("reason") if isinstance(dbg, dict) else "unmatched"
+                        ),
                         score=round(float(score), 4),
                         margin=round(float(margin), 4),
                         quality=round(float(quality), 4),
                         best=(dbg.get("best") if isinstance(dbg, dict) else None),
-                        threshold=(dbg.get("threshold") if isinstance(dbg, dict) else None),
+                        threshold=(
+                            dbg.get("threshold") if isinstance(dbg, dict) else None
+                        ),
                     )
-                results.append({"recognized": False, "status": "focusing", "face_box": box})
+                results.append(
+                    {"recognized": False, "status": "focusing", "face_box": box}
+                )
                 continue
 
             one_shot = (
@@ -557,7 +611,11 @@ class AIDemoRTSPWorker:
 
             key = str(match["student_id"])
             state = self._pending_confirm.get(key)
-            if state and now_ts - state.get("updated_at", 0) <= settings.ai_demo_rtsp_confirm_streak_ttl:
+            if (
+                state
+                and now_ts - state.get("updated_at", 0)
+                <= settings.ai_demo_rtsp_confirm_streak_ttl
+            ):
                 hits = int(state.get("hits", 0)) + 1
             else:
                 hits = 1
