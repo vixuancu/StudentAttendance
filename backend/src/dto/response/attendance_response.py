@@ -17,6 +17,17 @@ class AIDemoStartResponse(BaseModel):
     total_students: int
     cached_embeddings: int
     rtsp_url: str
+    class_session_id: int | None = None
+    course_section_id: int | None = None
+    course_section_name: str | None = None
+    course_name: str | None = None
+    lecturer_id: int | None = None
+    lecturer_name: str | None = None
+    room_id: int | None = None
+    room_name: str | None = None
+    session_date: datetime | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
 
 
 class AIDemoStopResponse(BaseModel):
@@ -32,6 +43,17 @@ class AIDemoStatusResponse(BaseModel):
     total_attended: int
     cached_embeddings: int
     connected: bool
+    class_session_id: int | None = None
+    course_section_id: int | None = None
+    course_section_name: str | None = None
+    course_name: str | None = None
+    lecturer_id: int | None = None
+    lecturer_name: str | None = None
+    room_id: int | None = None
+    room_name: str | None = None
+    session_date: datetime | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
 
 
 class AIDemoFaceResponse(BaseModel):
