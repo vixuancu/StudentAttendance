@@ -217,6 +217,27 @@ def get_camera_controller(
     return CameraController(service)
 
 
+# ===================== ATTENDANCE MANAGEMENT ===================== #
+from src.repository.interfaces.i_attendance_repo import IAttendanceRepository
+from src.repository.attendance_repo import AttendanceRepository
+from src.services.interfaces.i_attendance_management_service import IAttendanceManagementService
+from src.services.attendance_management_service import AttendanceManagementService
+from src.controller.attendance_management_controller import AttendanceManagementController
+
+def get_attendance_repo(db: AsyncSession = Depends(get_db)) -> IAttendanceRepository:
+    return AttendanceRepository(db)
+
+def get_attendance_management_service(
+    attendance_repo: IAttendanceRepository = Depends(get_attendance_repo),
+    course_section_repo: ICourseSectionRepository = Depends(get_course_section_repo),
+) -> IAttendanceManagementService:
+    return AttendanceManagementService(attendance_repo, course_section_repo)
+
+def get_attendance_management_controller(
+    service: IAttendanceManagementService = Depends(get_attendance_management_service),
+) -> AttendanceManagementController:
+    return AttendanceManagementController(service)
+
 # ==================== CLASSROOM ==================== #
 
 
