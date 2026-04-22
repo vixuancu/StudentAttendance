@@ -25,7 +25,7 @@ async def get_classrooms(
     page: int = Query(1, ge=1, description="Số trang"),
     page_size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
     className: Optional[str] = Query(None, description="Tìm theo tên phòng"),
-    _current_user: User = Depends(require_roles("admin")),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: ClassroomController = Depends(get_classroom_controller),
 ):
     pagination = PaginationParams(page=page, page_size=page_size)
@@ -38,7 +38,7 @@ async def get_classrooms(
     summary="Lấy danh sách phòng học chưa được gán camera",
 )
 async def get_available_classrooms(
-    _current_user: User = Depends(require_roles("admin")),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: ClassroomController = Depends(get_classroom_controller),
 ):
     return await ctrl.get_available_classrooms()
@@ -51,7 +51,7 @@ async def get_available_classrooms(
 )
 async def get_classroom(
     id: int,
-    _current_user: User = Depends(require_roles("admin")),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: ClassroomController = Depends(get_classroom_controller),
 ):
     return await ctrl.get_classroom(id)
