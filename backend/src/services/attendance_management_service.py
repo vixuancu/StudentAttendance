@@ -127,6 +127,17 @@ class AttendanceManagementService(IAttendanceManagementService):
         existing = await self.attendance_repo.get_attendance_by_student_and_session(
             request.student_id, request.class_session_id
         )
+
+        if request.status is None:
+            if existing:
+                await self.attendance_repo.soft_delete_attendance(existing)
+            return {
+                "id": None,
+                "student_id": request.student_id,
+                "class_session_id": request.class_session_id,
+                "status": None,
+                "note": None
+            }
         
         if existing:
             attendance = await self.attendance_repo.update_attendance(

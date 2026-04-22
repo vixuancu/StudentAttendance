@@ -93,7 +93,7 @@ class AttendanceRepository(IAttendanceRepository):
     async def update_attendance(
         self, 
         attendance: Attendance, 
-        status: int, 
+        status: Optional[int], 
         note: Optional[str]
     ) -> Attendance:
         attendance.status = status
@@ -101,3 +101,12 @@ class AttendanceRepository(IAttendanceRepository):
         await self.session.commit()
         await self.session.refresh(attendance)
         return attendance
+
+    async def soft_delete_attendance(
+        self,
+        attendance: Attendance
+    ) -> None:
+        attendance.is_cancel = True
+        attendance.status = None
+        attendance.note = None
+        await self.session.commit()

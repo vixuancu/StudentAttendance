@@ -52,7 +52,14 @@ class IAttendanceRepository(ABC):
     async def update_attendance(
         self,
         attendance: Attendance,
-        status: int,
+        status: Optional[int],
         note: Optional[str]
     ) -> Attendance:
+        pass
+
+    @abstractmethod
+    async def soft_delete_attendance(
+        self,
+        attendance: Attendance
+    ) -> None:
         pass
