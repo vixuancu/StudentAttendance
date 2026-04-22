@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from src.controller.attendance_controller import AttendanceController
+
+from src.db.models.user import User
 from src.deps import (
     get_ai_demo_runtime_service,
     get_attendance_controller,
@@ -20,6 +22,7 @@ from src.dto.response.attendance_response import (
     AIDemoStatusResponse,
     AIDemoStopResponse,
 )
+from src.middleware.auth import require_roles
 from src.services.attendance_service import AIDemoService
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
@@ -62,6 +65,44 @@ async def upload_student_faces(
     ctrl: AttendanceController = Depends(get_attendance_controller),
 ):
     return await ctrl.upload_student_faces(student_id=student_id, files=files)
+
+
+@router.post("/live/start", response_model=DataResponse[AIDemoStartResponse])
+async def start_live(
+    request: AIDemoStartRequest,
+    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    ctrl: AttendanceController = Depends(get_attendance_controller),
+):
+    return await ctrl.start_demo(mode=request.mode, rtsp_url=request.rtsp_url)
+
+
+@router.post("/live/stop", response_model=DataResponse[AIDemoStopResponse])
+async def stop_live(
+    request: AIDemoStopRequest,
+    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    ctrl: AttendanceController = Depends(get_attendance_controller),
+):
+    return await ctrl.stop_demo(runtime_id=request.runtime_id)
+
+
+@router.get("/live/status", response_model=DataResponse[AIDemoStatusResponse])
+async def get_live_status(
+    runtime_id: str | None = None,
+    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    ctrl: AttendanceController = Depends(get_attendance_controller),
+):
+    return await ctrl.get_demo_status(runtime_id=runtime_id)
+
+
+@router.post("/live/recognize-fast", response_model=DataResponse[AIDemoRecognizeResponse])
+async def recognize_fast_live(
+    runtime_id: str = Form(...),
+    face_positions: str = Form("[]"),
+    faces: list[UploadFile] = File(...),
+    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    ctrl: AttendanceController = Depends(get_attendance_controller),
+):
+    return await ctrl.recognize_fast(runtime_id=runtime_id, faces=faces, face_positions=face_positions)
 
 
 async def _mjpeg_generator(runtime_id: str, service: AIDemoService):
