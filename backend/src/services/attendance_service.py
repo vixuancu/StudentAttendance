@@ -90,6 +90,87 @@ class AIDemoService:
         self.repo = repo
         self.runtime = runtime
 
+    @staticmethod
+    def _extract_role_name(user: User) -> str | None:
+        role = user.__dict__.get("role")
+        return role.role_name if role else None
+
+    def _build_start_payload(self, cache_info: dict) -> dict:
+        return {
+            "runtime_id": self.runtime.runtime_id,
+            "mode": self.runtime.mode,
+            "started_at": self.runtime.started_at,
+            "total_students": cache_info["students"],
+            "cached_embeddings": cache_info["embeddings"],
+            "rtsp_url": self.runtime.rtsp_url,
+            "class_session_id": self.runtime.class_session_id,
+            "course_section_id": self.runtime.course_section_id,
+            "course_section_name": self.runtime.course_section_name,
+            "course_name": self.runtime.course_name,
+            "lecturer_id": self.runtime.lecturer_id,
+            "lecturer_name": self.runtime.lecturer_name,
+            "room_id": self.runtime.room_id,
+            "room_name": self.runtime.room_name,
+            "session_date": self.runtime.session_date,
+            "start_time": self.runtime.start_time,
+            "end_time": self.runtime.end_time,
+        }
+
+    def _build_status_payload(self, connected: bool) -> dict:
+        return {
+            "active": True,
+            "runtime_id": self.runtime.runtime_id,
+            "mode": self.runtime.mode,
+            "started_at": self.runtime.started_at,
+            "total_attended": len(self.runtime.attended_student_ids),
+            "cached_embeddings": int(self.runtime.cache_data["n_embeddings"]),
+            "connected": connected,
+            "class_session_id": self.runtime.class_session_id,
+            "course_section_id": self.runtime.course_section_id,
+            "course_section_name": self.runtime.course_section_name,
+            "course_name": self.runtime.course_name,
+            "lecturer_id": self.runtime.lecturer_id,
+            "lecturer_name": self.runtime.lecturer_name,
+            "room_id": self.runtime.room_id,
+            "room_name": self.runtime.room_name,
+            "session_date": self.runtime.session_date,
+            "start_time": self.runtime.start_time,
+            "end_time": self.runtime.end_time,
+        }
+
+    @staticmethod
+    def _resolve_attendance_status(late_time: Optional[object]) -> int:
+        if not isinstance(late_time, datetime):
+            return AttendanceStatus.PRESENT
+
+        now = datetime.now(tz=late_time.tzinfo) if late_time.tzinfo else datetime.now()
+        if now > late_time:
+            return AttendanceStatus.LATE
+        return AttendanceStatus.PRESENT
+
+    async def _upsert_attendance(self, student_id: int, class_session_id: int, status: int) -> None:
+        if self.repo is None:
+            return
+
+        existing = await self.repo.get_attendance_by_student_and_session(
+            student_id=student_id,
+            class_session_id=class_session_id,
+            include_cancel=True,
+        )
+        if existing is None:
+            await self.repo.create_attendance(
+                student_id=student_id,
+                class_session_id=class_session_id,
+                status=status,
+                note=None,
+            )
+            return
+
+        if existing.status == AttendanceStatus.PRESENT and status == AttendanceStatus.LATE:
+            return
+
+        await self.repo.update_attendance(attendance=existing, status=status, note=None)
+
     async def get_config(self) -> dict:
         return {
             "mode": settings.ai_demo_mode,
@@ -166,6 +247,18 @@ class AIDemoService:
             self.runtime.mode = selected_mode
             self.runtime.started_at = time.time()
             self.runtime.rtsp_url = cleaned_rtsp
+            self.runtime.class_session_id = None
+            self.runtime.course_section_id = None
+            self.runtime.course_section_name = ""
+            self.runtime.course_name = ""
+            self.runtime.lecturer_id = None
+            self.runtime.lecturer_name = ""
+            self.runtime.room_id = None
+            self.runtime.room_name = ""
+            self.runtime.session_date = None
+            self.runtime.start_time = None
+            self.runtime.end_time = None
+            self.runtime.late_time = None
             self.runtime.attended_student_ids.clear()
 
             if selected_mode == "ip_camera":
@@ -187,14 +280,78 @@ class AIDemoService:
                 cached_embeddings=cache_info["embeddings"],
             )
 
-            return {
-                "runtime_id": self.runtime.runtime_id,
-                "mode": self.runtime.mode,
-                "started_at": self.runtime.started_at,
-                "total_students": cache_info["students"],
-                "cached_embeddings": cache_info["embeddings"],
-                "rtsp_url": self.runtime.rtsp_url,
-            }
+            return self._build_start_payload(cache_info)
+
+    async def start_live(self, mode: Optional[str], class_session_id: int, current_user: User) -> dict:
+        if self.repo is None:
+            raise ValidationException("Repository chưa được khởi tạo", field="repo")
+
+        selected_mode = (mode or "webcam").strip().lower()
+        if selected_mode != "webcam":
+            raise ValidationException("live attendance hiện chỉ hỗ trợ mode webcam", field="mode")
+
+        session = await self.repo.get_class_session_detail(class_session_id)
+        if session is None:
+            raise ValidationException("Buổi học không tồn tại hoặc đã bị hủy", field="class_session_id")
+
+        course_section = session.course_section
+        if course_section is None or course_section.is_cancel:
+            raise ValidationException("Lớp tín chỉ của buổi học không hợp lệ", field="class_session_id")
+
+        role_name = self._extract_role_name(current_user)
+        if role_name == "giang_vien" and int(course_section.user_id) != int(current_user.id):
+            raise ForbiddenException("Giảng viên chỉ được mở điểm danh cho buổi học thuộc lớp mình quản lý")
+
+        rows = await self.repo.fetch_student_faces_by_course_section(int(course_section.id))
+        cache_data = build_cache_from_rows(rows)
+        if cache_data["n_embeddings"] == 0:
+            raise ValidationException(
+                "Lớp tín chỉ này chưa có dữ liệu khuôn mặt sinh viên để điểm danh",
+                field="cache",
+            )
+
+        cache_info = {
+            "students": cache_data["n_students"],
+            "embeddings": cache_data["n_embeddings"],
+        }
+
+        with self.runtime.lock:
+            if self.runtime.worker:
+                self.runtime.worker.stop()
+                self.runtime.worker = None
+
+            self.runtime.active = True
+            self.runtime.runtime_id = uuid.uuid4().hex
+            self.runtime.mode = selected_mode
+            self.runtime.started_at = time.time()
+            self.runtime.rtsp_url = ""
+            self.runtime.class_session_id = int(session.id)
+            self.runtime.course_section_id = int(course_section.id)
+            self.runtime.course_section_name = course_section.name or ""
+            self.runtime.course_name = course_section.course.course_name if course_section.course else ""
+            self.runtime.lecturer_id = int(course_section.user_id)
+            self.runtime.lecturer_name = course_section.user.full_name if course_section.user else ""
+            room = session.room if session.room else course_section.room
+            self.runtime.room_id = int(room.id) if room else None
+            self.runtime.room_name = room.class_name if room else ""
+            self.runtime.session_date = session.session_date
+            self.runtime.start_time = session.start_time
+            self.runtime.end_time = session.end_time
+            self.runtime.late_time = session.late_time
+            self.runtime.cache_data = cache_data
+            self.runtime.attended_student_ids.clear()
+
+            log_ai_demo_event(
+                "runtime_start_live",
+                runtime_id=self.runtime.runtime_id,
+                mode=self.runtime.mode,
+                class_session_id=self.runtime.class_session_id,
+                course_section_id=self.runtime.course_section_id,
+                lecturer_id=self.runtime.lecturer_id,
+                cached_embeddings=cache_info["embeddings"],
+            )
+
+            return self._build_start_payload(cache_info)
 
     async def stop(self, runtime_id: Optional[str]) -> dict:
         with self.runtime.lock:
@@ -236,15 +393,7 @@ class AIDemoService:
                 raise ValidationException("runtime_id không hợp lệ", field="runtime_id")
 
             connected = self.runtime.worker.connected if self.runtime.worker else True
-            return {
-                "active": True,
-                "runtime_id": self.runtime.runtime_id,
-                "mode": self.runtime.mode,
-                "started_at": self.runtime.started_at,
-                "total_attended": len(self.runtime.attended_student_ids),
-                "cached_embeddings": int(self.runtime.cache_data["n_embeddings"]),
-                "connected": connected,
-            }
+            return self._build_status_payload(connected)
 
     async def recognize_fast(self, runtime_id: str, face_files, face_positions_json: str) -> dict:
         with self.runtime.lock:
@@ -255,6 +404,8 @@ class AIDemoService:
             if self.runtime.mode not in {"webcam", "both"}:
                 raise ValidationException("Runtime hiện tại không ở chế độ webcam", field="mode")
             cache_data = self.runtime.cache_data
+            class_session_id = self.runtime.class_session_id
+            late_time = self.runtime.late_time
 
         if settings.ai_demo_debug_log_verbose:
             log_ai_demo_event(
@@ -339,6 +490,14 @@ class AIDemoService:
                 already = sid in self.runtime.attended_student_ids
                 if not already:
                     self.runtime.attended_student_ids.add(sid)
+
+            if not already and class_session_id is not None:
+                attendance_status = self._resolve_attendance_status(late_time)
+                await self._upsert_attendance(
+                    student_id=sid,
+                    class_session_id=class_session_id,
+                    status=attendance_status,
+                )
 
             if not already:
                 new_attended.append(

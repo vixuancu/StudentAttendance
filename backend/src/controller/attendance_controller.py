@@ -1,4 +1,5 @@
 from src.dto.common import DataResponse
+from src.db.models.user import User
 from src.dto.response.attendance_response import (
     AIDemoConfigResponse,
     AIDemoFaceUploadResponse,
@@ -26,6 +27,22 @@ class AttendanceController:
         return DataResponse(
             data=AIDemoStartResponse.model_validate(data),
             message="Khởi động demo AI thành công",
+        )
+
+    async def start_live(
+        self,
+        mode: str,
+        class_session_id: int,
+        current_user: User,
+    ) -> DataResponse[AIDemoStartResponse]:
+        data = await self.service.start_live(
+            mode=mode,
+            class_session_id=class_session_id,
+            current_user=current_user,
+        )
+        return DataResponse(
+            data=AIDemoStartResponse.model_validate(data),
+            message="Khởi động điểm danh live thành công",
         )
 
     async def stop_demo(self, runtime_id: str | None) -> DataResponse[AIDemoStopResponse]:

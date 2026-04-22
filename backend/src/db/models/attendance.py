@@ -1,5 +1,14 @@
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Boolean, Integer, SmallInteger, String, DateTime, ForeignKey, func
+from sqlalchemy import (
+    Boolean,
+    Integer,
+    SmallInteger,
+    String,
+    DateTime,
+    ForeignKey,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -11,6 +20,9 @@ if TYPE_CHECKING:
 
 class Attendance(Base):
     __tablename__ = "attendance"
+    __table_args__ = (
+        UniqueConstraint("student_id", "class_session_id", name="unique_attendance"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     student_id: Mapped[int] = mapped_column(Integer, ForeignKey("students.id"), nullable=False)

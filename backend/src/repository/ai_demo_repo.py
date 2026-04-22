@@ -91,15 +91,17 @@ class AIDemoRepository:
         self,
         student_id: int,
         class_session_id: int,
+        include_cancel: bool = False,
     ) -> Attendance | None:
-        result = await self.db.execute(
-            select(Attendance).where(
-                Attendance.student_id == student_id,
-                Attendance.class_session_id == class_session_id,
-                Attendance.is_cancel.is_(False),
-            )
-        )
-        return result.scalar_one_or_none()
+        stmt = select(Attendance).where(
+            Attendance.student_id == student_id,
+            Attendance.class_session_id == class_session_id,
+        ).order_by(Attendance.id.desc())
+        if not include_cancel:
+            stmt = stmt.where(Attendance.is_cancel.is_(False))
+
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
     async def create_attendance(
         self,
@@ -128,6 +130,7 @@ class AIDemoRepository:
     ) -> Attendance:
         attendance.status = status
         attendance.note = note
+        attendance.is_cancel = False
         await self.db.flush()
         await self.db.refresh(attendance)
         return attendance

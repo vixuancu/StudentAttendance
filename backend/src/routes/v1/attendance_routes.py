@@ -13,7 +13,11 @@ from src.deps import (
     get_attendance_controller,
 )
 from src.dto.common import DataResponse
-from src.dto.request.attendance_request import AIDemoStartRequest, AIDemoStopRequest
+from src.dto.request.attendance_request import (
+    AIDemoStartRequest,
+    AIDemoStopRequest,
+    AILiveStartRequest,
+)
 from src.dto.response.attendance_response import (
     AIDemoConfigResponse,
     AIDemoFaceUploadResponse,
@@ -69,11 +73,15 @@ async def upload_student_faces(
 
 @router.post("/live/start", response_model=DataResponse[AIDemoStartResponse])
 async def start_live(
-    request: AIDemoStartRequest,
-    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    request: AILiveStartRequest,
+    current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
     ctrl: AttendanceController = Depends(get_attendance_controller),
 ):
-    return await ctrl.start_demo(mode=request.mode, rtsp_url=request.rtsp_url)
+    return await ctrl.start_live(
+        mode=request.mode,
+        class_session_id=request.class_session_id,
+        current_user=current_user,
+    )
 
 
 @router.post("/live/stop", response_model=DataResponse[AIDemoStopResponse])
