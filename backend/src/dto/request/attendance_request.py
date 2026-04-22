@@ -14,6 +14,19 @@ class AIDemoStartRequest(BaseModel):
         return normalized
 
 
+class AILiveStartRequest(BaseModel):
+    mode: str = Field(default="webcam", description="Chỉ hỗ trợ webcam ở live page")
+    class_session_id: int = Field(..., ge=1)
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        if normalized != "webcam":
+            raise ValueError("live attendance hiện chỉ hỗ trợ mode webcam")
+        return normalized
+
+
 class AIDemoStopRequest(BaseModel):
     runtime_id: str | None = None
 

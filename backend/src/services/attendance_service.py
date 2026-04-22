@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import json
 import threading
 import time
@@ -11,6 +12,8 @@ import cv2
 import numpy as np
 
 from src.config.settings import settings
+from src.db.models.enums import AttendanceStatus
+from src.db.models.user import User
 from src.repository.ai_demo_repo import AIDemoRepository
 from src.services.recognition_service import (
     AIDemoRTSPWorker,
@@ -20,7 +23,7 @@ from src.services.recognition_service import (
     match_from_cache,
 )
 from src.utils.ai_demo_logger import get_ai_demo_log_path, log_ai_demo_event
-from src.utils.exceptions import ValidationException
+from src.utils.exceptions import ForbiddenException, ValidationException
 
 
 _backend_dir = Path(__file__).resolve().parents[2]
@@ -35,6 +38,18 @@ class AIDemoRuntime:
     mode: str = "webcam"
     started_at: float = 0.0
     rtsp_url: str = ""
+    class_session_id: Optional[int] = None
+    course_section_id: Optional[int] = None
+    course_section_name: str = ""
+    course_name: str = ""
+    lecturer_id: Optional[int] = None
+    lecturer_name: str = ""
+    room_id: Optional[int] = None
+    room_name: str = ""
+    session_date: Optional[object] = None
+    start_time: Optional[object] = None
+    end_time: Optional[object] = None
+    late_time: Optional[object] = None
     cache_data: dict = field(default_factory=lambda: build_cache_from_rows([]))
     attended_student_ids: set[int] = field(default_factory=set)
     worker: Optional[AIDemoRTSPWorker] = None
@@ -45,6 +60,18 @@ class AIDemoRuntime:
         self.mode = "webcam"
         self.started_at = 0.0
         self.rtsp_url = ""
+        self.class_session_id = None
+        self.course_section_id = None
+        self.course_section_name = ""
+        self.course_name = ""
+        self.lecturer_id = None
+        self.lecturer_name = ""
+        self.room_id = None
+        self.room_name = ""
+        self.session_date = None
+        self.start_time = None
+        self.end_time = None
+        self.late_time = None
         self.attended_student_ids.clear()
         if self.worker:
             self.worker.stop()
