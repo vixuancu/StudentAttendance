@@ -15,6 +15,7 @@ from src.routes.v1 import (
     auth_routes,
     attendance_routes,
     attendance_management_routes,
+    report_routes,
 )
 
 # from src.routes.v1 import user_routes
@@ -31,6 +32,7 @@ api_router.include_router(camera_routes.router)
 api_router.include_router(classrooms_routes.router)
 api_router.include_router(attendance_routes.router)
 api_router.include_router(attendance_management_routes.router)
+api_router.include_router(report_routes.router)
 api_router.include_router(course_routes.router)
 api_router.include_router(course_section_routes.router)
 # api_router.include_router(user_routes.router)
