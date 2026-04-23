@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 
 from src.config.settings import settings
-from src.db.models.enums import AttendanceStatus
+from src.db.models.enums import AttendanceStatus, SessionStatus
 from src.db.models.user import User
 from src.repository.ai_demo_repo import AIDemoRepository
 from src.services.recognition_service import (
@@ -52,6 +52,8 @@ class AIDemoRuntime:
     late_time: Optional[object] = None
     cache_data: dict = field(default_factory=lambda: build_cache_from_rows([]))
     attended_student_ids: set[int] = field(default_factory=set)
+    enrolled_student_ids: set[int] = field(default_factory=set)
+    owner_user_id: Optional[int] = None
     worker: Optional[AIDemoRTSPWorker] = None
 
     def reset(self):
@@ -73,6 +75,9 @@ class AIDemoRuntime:
         self.end_time = None
         self.late_time = None
         self.attended_student_ids.clear()
+        self.enrolled_student_ids.clear()
+        self.owner_user_id = None
+        self.cache_data = build_cache_from_rows([])
         if self.worker:
             self.worker.stop()
         self.worker = None
@@ -260,6 +265,8 @@ class AIDemoService:
             self.runtime.end_time = None
             self.runtime.late_time = None
             self.runtime.attended_student_ids.clear()
+            self.runtime.enrolled_student_ids.clear()
+            self.runtime.owner_user_id = None
 
             if selected_mode == "ip_camera":
                 worker = AIDemoRTSPWorker(
@@ -282,7 +289,13 @@ class AIDemoService:
 
             return self._build_start_payload(cache_info)
 
-    async def start_live(self, mode: Optional[str], class_session_id: int, current_user: User) -> dict:
+    async def start_live(
+        self,
+        mode: Optional[str],
+        class_session_id: int,
+        course_section_id: int,
+        current_user: User,
+    ) -> dict:
         if self.repo is None:
             raise ValidationException("Repository chưa được khởi tạo", field="repo")
 
@@ -298,11 +311,28 @@ class AIDemoService:
         if course_section is None or course_section.is_cancel:
             raise ValidationException("Lớp tín chỉ của buổi học không hợp lệ", field="class_session_id")
 
+        if int(course_section.id) != int(course_section_id):
+            raise ValidationException(
+                "Buổi học không thuộc lớp tín chỉ đã chọn",
+                field="course_section_id",
+            )
+
+        if session.status == SessionStatus.CANCELLED:
+            raise ValidationException("Buổi học đã được đánh dấu nghỉ, không thể mở điểm danh", field="class_session_id")
+
         role_name = self._extract_role_name(current_user)
         if role_name == "giang_vien" and int(course_section.user_id) != int(current_user.id):
             raise ForbiddenException("Giảng viên chỉ được mở điểm danh cho buổi học thuộc lớp mình quản lý")
 
+        enrolled_students = await self.repo.count_active_enrollments_by_course_section(int(course_section.id))
+        if enrolled_students <= 0:
+            raise ValidationException(
+                "Lớp tín chỉ này chưa có sinh viên đăng ký nên không thể mở điểm danh",
+                field="enrollment",
+            )
+
         rows = await self.repo.fetch_student_faces_by_course_section(int(course_section.id))
+        enrolled_student_ids = await self.repo.fetch_enrolled_student_ids_by_course_section(int(course_section.id))
         cache_data = build_cache_from_rows(rows)
         if cache_data["n_embeddings"] == 0:
             raise ValidationException(
@@ -311,11 +341,19 @@ class AIDemoService:
             )
 
         cache_info = {
-            "students": cache_data["n_students"],
+            "students": int(enrolled_students),
             "embeddings": cache_data["n_embeddings"],
         }
 
         with self.runtime.lock:
+            if (
+                self.runtime.active
+                and self.runtime.class_session_id is not None
+                and self.runtime.owner_user_id is not None
+                and int(self.runtime.owner_user_id) != int(current_user.id)
+            ):
+                raise ForbiddenException("Đang có phiên điểm danh live do người dùng khác vận hành")
+
             if self.runtime.worker:
                 self.runtime.worker.stop()
                 self.runtime.worker = None
@@ -340,6 +378,8 @@ class AIDemoService:
             self.runtime.late_time = session.late_time
             self.runtime.cache_data = cache_data
             self.runtime.attended_student_ids.clear()
+            self.runtime.enrolled_student_ids = set(enrolled_student_ids)
+            self.runtime.owner_user_id = int(current_user.id)
 
             log_ai_demo_event(
                 "runtime_start_live",
@@ -352,6 +392,19 @@ class AIDemoService:
             )
 
             return self._build_start_payload(cache_info)
+
+    def _ensure_live_runtime_owner(self, current_user: User) -> None:
+        with self.runtime.lock:
+            if not self.runtime.active:
+                return
+            if self.runtime.class_session_id is None:
+                raise ValidationException("Runtime hiện tại không phải phiên điểm danh live", field="runtime")
+            owner_user_id = self.runtime.owner_user_id
+
+        if owner_user_id is None:
+            return
+        if int(owner_user_id) != int(current_user.id):
+            raise ForbiddenException("Bạn không có quyền thao tác trên phiên điểm danh này")
 
     async def stop(self, runtime_id: Optional[str]) -> dict:
         with self.runtime.lock:
@@ -377,6 +430,10 @@ class AIDemoService:
                 "total_attended": total,
             }
 
+    async def stop_live(self, runtime_id: Optional[str], current_user: User) -> dict:
+        self._ensure_live_runtime_owner(current_user)
+        return await self.stop(runtime_id=runtime_id)
+
     async def status(self, runtime_id: Optional[str]) -> dict:
         with self.runtime.lock:
             if not self.runtime.active:
@@ -395,6 +452,10 @@ class AIDemoService:
             connected = self.runtime.worker.connected if self.runtime.worker else True
             return self._build_status_payload(connected)
 
+    async def status_live(self, runtime_id: Optional[str], current_user: User) -> dict:
+        self._ensure_live_runtime_owner(current_user)
+        return await self.status(runtime_id=runtime_id)
+
     async def recognize_fast(self, runtime_id: str, face_files, face_positions_json: str) -> dict:
         with self.runtime.lock:
             if not self.runtime.active:
@@ -406,6 +467,7 @@ class AIDemoService:
             cache_data = self.runtime.cache_data
             class_session_id = self.runtime.class_session_id
             late_time = self.runtime.late_time
+            enrolled_student_ids = set(self.runtime.enrolled_student_ids)
 
         if settings.ai_demo_debug_log_verbose:
             log_ai_demo_event(
@@ -486,6 +548,31 @@ class AIDemoService:
                 continue
 
             sid = int(match["student_id"])
+            if class_session_id is not None and sid not in enrolled_student_ids:
+                not_enrolled_debug = {
+                    **dbg,
+                    "reason": "not_enrolled_in_session",
+                }
+                results.append(
+                    {
+                        "recognized": False,
+                        "face_box": face_box,
+                        "debug": not_enrolled_debug,
+                    }
+                )
+                debug_faces.append(
+                    {
+                        "idx": i,
+                        "reason": "not_enrolled_in_session",
+                        "student_id": sid,
+                        "quality": round(float(quality), 4),
+                        "best": dbg.get("best"),
+                        "threshold": dbg.get("threshold"),
+                        "margin": dbg.get("margin"),
+                    }
+                )
+                continue
+
             with self.runtime.lock:
                 already = sid in self.runtime.attended_student_ids
                 if not already:
@@ -559,6 +646,20 @@ class AIDemoService:
             "total_attended": total_attended,
             "elapsed_ms": elapsed,
         }
+
+    async def recognize_fast_live(
+        self,
+        runtime_id: str,
+        face_files,
+        face_positions_json: str,
+        current_user: User,
+    ) -> dict:
+        self._ensure_live_runtime_owner(current_user)
+        return await self.recognize_fast(
+            runtime_id=runtime_id,
+            face_files=face_files,
+            face_positions_json=face_positions_json,
+        )
 
     def get_stream_packet(self, runtime_id: str) -> Optional[tuple[int, bytes]]:
         with self.runtime.lock:

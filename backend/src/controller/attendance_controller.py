@@ -33,16 +33,44 @@ class AttendanceController:
         self,
         mode: str,
         class_session_id: int,
+        course_section_id: int,
         current_user: User,
     ) -> DataResponse[AIDemoStartResponse]:
         data = await self.service.start_live(
             mode=mode,
             class_session_id=class_session_id,
+            course_section_id=course_section_id,
             current_user=current_user,
         )
         return DataResponse(
             data=AIDemoStartResponse.model_validate(data),
             message="Khởi động điểm danh live thành công",
+        )
+
+    async def stop_live(self, runtime_id: str | None, current_user: User) -> DataResponse[AIDemoStopResponse]:
+        data = await self.service.stop_live(runtime_id=runtime_id, current_user=current_user)
+        return DataResponse(
+            data=AIDemoStopResponse.model_validate(data),
+            message="Dừng điểm danh live thành công",
+        )
+
+    async def get_live_status(self, runtime_id: str | None, current_user: User) -> DataResponse[AIDemoStatusResponse]:
+        data = await self.service.status_live(runtime_id=runtime_id, current_user=current_user)
+        return DataResponse(
+            data=AIDemoStatusResponse.model_validate(data),
+            message="Lấy trạng thái điểm danh live thành công",
+        )
+
+    async def recognize_fast_live(self, runtime_id: str, faces, face_positions: str, current_user: User) -> DataResponse[AIDemoRecognizeResponse]:
+        data = await self.service.recognize_fast_live(
+            runtime_id=runtime_id,
+            face_files=faces,
+            face_positions_json=face_positions,
+            current_user=current_user,
+        )
+        return DataResponse(
+            data=AIDemoRecognizeResponse.model_validate(data),
+            message="Nhận diện nhanh live thành công",
         )
 
     async def stop_demo(self, runtime_id: str | None) -> DataResponse[AIDemoStopResponse]:

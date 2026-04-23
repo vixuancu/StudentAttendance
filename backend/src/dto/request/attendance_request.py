@@ -17,6 +17,7 @@ class AIDemoStartRequest(BaseModel):
 class AILiveStartRequest(BaseModel):
     mode: str = Field(default="webcam", description="Chỉ hỗ trợ webcam ở live page")
     class_session_id: int = Field(..., ge=1)
+    course_section_id: int = Field(..., ge=1)
 
     @field_validator("mode")
     @classmethod
