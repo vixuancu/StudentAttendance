@@ -74,7 +74,8 @@ class AttendanceManagementService(IAttendanceManagementService):
                 class_session_id=attendance.class_session_id,
                 status=attendance.status,
                 note=attendance.note,
-                session_date=attendance.class_session.session_date
+                session_date=attendance.class_session.session_date,
+                attendance_created_at=attendance.created_at,
             )
 
         students_matrix = []
@@ -91,7 +92,8 @@ class AttendanceManagementService(IAttendanceManagementService):
                         class_session_id=session.id,
                         status=None,
                         note=None,
-                        session_date=session.session_date
+                        session_date=session.session_date,
+                        attendance_created_at=None,
                     ))
             
             # Sort by session date just in case
