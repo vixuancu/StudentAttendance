@@ -8,6 +8,7 @@ class AttendanceRecordResponse(BaseModel):
     status: Optional[int] = None
     note: Optional[str] = None
     session_date: datetime
+    attendance_created_at: Optional[datetime] = None
 
 class StudentAttendanceMatrixResponse(BaseModel):
     student_id: int
