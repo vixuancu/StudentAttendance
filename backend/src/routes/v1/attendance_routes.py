@@ -80,6 +80,7 @@ async def start_live(
     return await ctrl.start_live(
         mode=request.mode,
         class_session_id=request.class_session_id,
+        course_section_id=request.course_section_id,
         current_user=current_user,
     )
 
@@ -87,19 +88,19 @@ async def start_live(
 @router.post("/live/stop", response_model=DataResponse[AIDemoStopResponse])
 async def stop_live(
     request: AIDemoStopRequest,
-    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
     ctrl: AttendanceController = Depends(get_attendance_controller),
 ):
-    return await ctrl.stop_demo(runtime_id=request.runtime_id)
+    return await ctrl.stop_live(runtime_id=request.runtime_id, current_user=current_user)
 
 
 @router.get("/live/status", response_model=DataResponse[AIDemoStatusResponse])
 async def get_live_status(
     runtime_id: str | None = None,
-    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
     ctrl: AttendanceController = Depends(get_attendance_controller),
 ):
-    return await ctrl.get_demo_status(runtime_id=runtime_id)
+    return await ctrl.get_live_status(runtime_id=runtime_id, current_user=current_user)
 
 
 @router.post("/live/recognize-fast", response_model=DataResponse[AIDemoRecognizeResponse])
@@ -107,10 +108,15 @@ async def recognize_fast_live(
     runtime_id: str = Form(...),
     face_positions: str = Form("[]"),
     faces: list[UploadFile] = File(...),
-    _current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
+    current_user: User = Depends(require_roles("admin", "giao_vu", "giang_vien")),
     ctrl: AttendanceController = Depends(get_attendance_controller),
 ):
-    return await ctrl.recognize_fast(runtime_id=runtime_id, faces=faces, face_positions=face_positions)
+    return await ctrl.recognize_fast_live(
+        runtime_id=runtime_id,
+        faces=faces,
+        face_positions=face_positions,
+        current_user=current_user,
+    )
 
 
 async def _mjpeg_generator(runtime_id: str, service: AIDemoService):

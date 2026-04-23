@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,6 +74,30 @@ class AIDemoRepository:
                 }
             )
         return rows
+
+    async def count_active_enrollments_by_course_section(self, course_section_id: int) -> int:
+        result = await self.db.execute(
+            select(func.count(Enrollment.id))
+            .join(Student, Student.id == Enrollment.student_id)
+            .where(
+                Enrollment.course_section_id == course_section_id,
+                Enrollment.is_cancel.is_(False),
+                Student.is_cancel.is_(False),
+            )
+        )
+        return int(result.scalar_one() or 0)
+
+    async def fetch_enrolled_student_ids_by_course_section(self, course_section_id: int) -> set[int]:
+        result = await self.db.execute(
+            select(Enrollment.student_id)
+            .join(Student, Student.id == Enrollment.student_id)
+            .where(
+                Enrollment.course_section_id == course_section_id,
+                Enrollment.is_cancel.is_(False),
+                Student.is_cancel.is_(False),
+            )
+        )
+        return {int(student_id) for student_id in result.scalars().all()}
 
     async def get_class_session_detail(self, class_session_id: int) -> ClassSession | None:
         result = await self.db.execute(
