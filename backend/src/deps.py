@@ -284,3 +284,23 @@ def get_attendance_controller(
     service: AIDemoService = Depends(get_ai_demo_service),
 ) -> AttendanceController:
     return AttendanceController(service)
+
+# ===================== REPORT ===================== #
+from src.repository.interfaces.i_report_repo import IReportRepository
+from src.repository.report_repo import ReportRepository
+from src.services.interfaces.i_report_service import IReportService
+from src.services.report_service import ReportService
+from src.controller.report_controller import ReportController
+
+def get_report_repo(db: AsyncSession = Depends(get_db)) -> IReportRepository:
+    return ReportRepository(db)
+
+def get_report_service(
+    report_repo: IReportRepository = Depends(get_report_repo),
+) -> IReportService:
+    return ReportService(report_repo)
+
+def get_report_controller(
+    service: IReportService = Depends(get_report_service),
+) -> ReportController:
+    return ReportController(service)
