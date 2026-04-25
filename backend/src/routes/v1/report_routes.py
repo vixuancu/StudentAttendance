@@ -7,14 +7,16 @@ from src.db.models.user import User
 from src.dto.common import DataResponse
 from src.dto.response.report_response import (
     ReportStatsResponse,
+    ReportOverviewResponse,
     WeeklyTrendItem,
     ClassSummaryItem,
-    PaginatedReportDetailResponse
+    PaginatedReportDetailResponse,
 )
 from src.middleware.auth import require_roles
 from src.deps import get_report_controller
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
 
 @router.get("/stats", response_model=DataResponse[ReportStatsResponse])
 async def get_report_stats(
@@ -22,9 +24,20 @@ async def get_report_stats(
     from_date: Optional[date] = Query(None, description="Ngày bắt đầu (YYYY-MM-DD)"),
     to_date: Optional[date] = Query(None, description="Ngày kết thúc (YYYY-MM-DD)"),
     current_user: User = Depends(require_roles("admin", "giao_vu")),
-    ctrl: ReportController = Depends(get_report_controller)
+    ctrl: ReportController = Depends(get_report_controller),
 ):
-    return await ctrl.get_report_stats(course_section_id, from_date, to_date, current_user)
+    return await ctrl.get_report_stats(
+        course_section_id, from_date, to_date, current_user
+    )
+
+
+@router.get("/overview", response_model=DataResponse[ReportOverviewResponse])
+async def get_overview(
+    current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: ReportController = Depends(get_report_controller),
+):
+    return await ctrl.get_overview(current_user)
+
 
 @router.get("/weekly-trend", response_model=DataResponse[List[WeeklyTrendItem]])
 async def get_weekly_trend(
@@ -32,18 +45,22 @@ async def get_weekly_trend(
     from_date: Optional[date] = Query(None, description="Ngày bắt đầu (YYYY-MM-DD)"),
     to_date: Optional[date] = Query(None, description="Ngày kết thúc (YYYY-MM-DD)"),
     current_user: User = Depends(require_roles("admin", "giao_vu")),
-    ctrl: ReportController = Depends(get_report_controller)
+    ctrl: ReportController = Depends(get_report_controller),
 ):
-    return await ctrl.get_weekly_trend(course_section_id, from_date, to_date, current_user)
+    return await ctrl.get_weekly_trend(
+        course_section_id, from_date, to_date, current_user
+    )
+
 
 @router.get("/class-summary", response_model=DataResponse[List[ClassSummaryItem]])
 async def get_class_summary(
     from_date: Optional[date] = Query(None, description="Ngày bắt đầu (YYYY-MM-DD)"),
     to_date: Optional[date] = Query(None, description="Ngày kết thúc (YYYY-MM-DD)"),
     current_user: User = Depends(require_roles("admin", "giao_vu")),
-    ctrl: ReportController = Depends(get_report_controller)
+    ctrl: ReportController = Depends(get_report_controller),
 ):
     return await ctrl.get_class_summary(from_date, to_date, current_user)
+
 
 @router.get("/details", response_model=DataResponse[PaginatedReportDetailResponse])
 async def get_report_details(
@@ -53,6 +70,8 @@ async def get_report_details(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     current_user: User = Depends(require_roles("admin", "giao_vu")),
-    ctrl: ReportController = Depends(get_report_controller)
+    ctrl: ReportController = Depends(get_report_controller),
 ):
-    return await ctrl.get_report_details(course_section_id, from_date, to_date, page, per_page, current_user)
+    return await ctrl.get_report_details(
+        course_section_id, from_date, to_date, page, per_page, current_user
+    )

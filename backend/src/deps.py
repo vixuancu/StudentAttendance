@@ -220,12 +220,18 @@ def get_camera_controller(
 # ===================== ATTENDANCE MANAGEMENT ===================== #
 from src.repository.interfaces.i_attendance_repo import IAttendanceRepository
 from src.repository.attendance_repo import AttendanceRepository
-from src.services.interfaces.i_attendance_management_service import IAttendanceManagementService
+from src.services.interfaces.i_attendance_management_service import (
+    IAttendanceManagementService,
+)
 from src.services.attendance_management_service import AttendanceManagementService
-from src.controller.attendance_management_controller import AttendanceManagementController
+from src.controller.attendance_management_controller import (
+    AttendanceManagementController,
+)
+
 
 def get_attendance_repo(db: AsyncSession = Depends(get_db)) -> IAttendanceRepository:
     return AttendanceRepository(db)
+
 
 def get_attendance_management_service(
     attendance_repo: IAttendanceRepository = Depends(get_attendance_repo),
@@ -233,10 +239,12 @@ def get_attendance_management_service(
 ) -> IAttendanceManagementService:
     return AttendanceManagementService(attendance_repo, course_section_repo)
 
+
 def get_attendance_management_controller(
     service: IAttendanceManagementService = Depends(get_attendance_management_service),
 ) -> AttendanceManagementController:
     return AttendanceManagementController(service)
+
 
 # ==================== CLASSROOM ==================== #
 
@@ -285,20 +293,41 @@ def get_attendance_controller(
 ) -> AttendanceController:
     return AttendanceController(service)
 
+
 # ===================== REPORT ===================== #
 from src.repository.interfaces.i_report_repo import IReportRepository
 from src.repository.report_repo import ReportRepository
 from src.services.interfaces.i_report_service import IReportService
 from src.services.report_service import ReportService
 from src.controller.report_controller import ReportController
+from src.repository.interfaces.i_student_repo import IStudentRepository
+from src.repository.interfaces.i_user_repo import IUserRepository
+from src.repository.interfaces.i_camera_repo import ICameraRepository
+from src.repository.interfaces.i_classroom_repo import IClassroomRepository
+from src.repository.interfaces.i_course_section_repo import ICourseSectionRepository
+
 
 def get_report_repo(db: AsyncSession = Depends(get_db)) -> IReportRepository:
     return ReportRepository(db)
 
+
 def get_report_service(
     report_repo: IReportRepository = Depends(get_report_repo),
+    student_repo: IStudentRepository = Depends(get_student_repo),
+    user_repo: IUserRepository = Depends(get_user_repo),
+    camera_repo: ICameraRepository = Depends(get_camera_repo),
+    classroom_repo: IClassroomRepository = Depends(get_classroom_repo),
+    course_section_repo: ICourseSectionRepository = Depends(get_course_section_repo),
 ) -> IReportService:
-    return ReportService(report_repo)
+    return ReportService(
+        report_repo,
+        student_repo,
+        user_repo,
+        camera_repo,
+        classroom_repo,
+        course_section_repo,
+    )
+
 
 def get_report_controller(
     service: IReportService = Depends(get_report_service),
