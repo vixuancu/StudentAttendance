@@ -87,6 +87,8 @@ class CourseSectionSessionUpdateResponse(BaseModel):
     status: int
     status_label: str
     note: Optional[str] = None
+    room_id: Optional[int] = None
+    room_name: Optional[str] = None
 
     class Config:
         from_attributes = True

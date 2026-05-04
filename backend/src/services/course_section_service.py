@@ -300,9 +300,9 @@ class CourseSectionService(ICourseSectionService):
         )
 
         existing = await self.repo.list_class_sessions(section_id)
-        
+
         target_keys = {self._session_key(payload) for payload in target_sessions}
-        
+
         for session in existing:
             key = (
                 session.session_date.date(),
@@ -1041,6 +1041,7 @@ class CourseSectionService(ICourseSectionService):
         session_id: int,
         status: int,
         note: str | None,
+        room_id: int | None = None,
     ) -> ClassSession:
         await self.get_by_id(section_id)
         session = await self.repo.get_class_session_by_id(section_id, session_id)
@@ -1055,8 +1056,31 @@ class CourseSectionService(ICourseSectionService):
         if status not in allowed_statuses:
             raise Validation(message="Trạng thái buổi học không hợp lệ")
 
-        payload = {
+        payload: dict[str, object] = {
             "status": status,
             "note": (note or None),
         }
-        return await self.repo.update_class_session(session, payload)
+
+        if room_id is not None:
+            room = await self.repo.get_room_by_id(room_id)
+            if room is None:
+                raise NotFound(ERROR_CODES.CLASSROOM.CLASSROOM_NOT_FOUND)
+
+            if session.start_time is not None and session.end_time is not None:
+                room_conflict = await self.repo.get_class_session_room_conflict(
+                    room_id=room_id,
+                    session_date=session.session_date,
+                    start_time=session.start_time,
+                    end_time=session.end_time,
+                    exclude_session_id=session.id,
+                )
+                if room_conflict is not None:
+                    raise Validation(
+                        message="Phòng học đã được sử dụng trong khung giờ này"
+                    )
+
+            payload["room_id"] = room_id
+
+        updated = await self.repo.update_class_session(session, payload)
+        refreshed = await self.repo.get_class_session_by_id(section_id, session_id)
+        return refreshed if refreshed is not None else updated
