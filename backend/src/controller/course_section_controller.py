@@ -308,6 +308,7 @@ class CourseSectionController:
             session_id=session_id,
             status=request.status,
             note=request.note,
+            room_id=request.room_id,
         )
         status_value = session.status or 0
         return DataResponse(
@@ -316,6 +317,8 @@ class CourseSectionController:
                 status=status_value,
                 status_label=self._resolve_session_status_label(status_value),
                 note=session.note,
+                room_id=session.room_id,
+                room_name=session.room.class_name if session.room else None,
             ),
             message="Cập nhật buổi học thành công",
         )

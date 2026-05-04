@@ -338,6 +338,35 @@ class CourseSectionRepository(BaseRepository, ICourseSectionRepository):
     ) -> ClassSession:
         return await self.update(db_obj, data)
 
+    async def get_class_session_room_conflict(
+        self,
+        *,
+        room_id: int,
+        session_date: datetime,
+        start_time: datetime,
+        end_time: datetime,
+        exclude_session_id: int | None = None,
+    ) -> ClassSession | None:
+        query = (
+            select(ClassSession)
+            .join(CourseSection, CourseSection.id == ClassSession.course_section_id)
+            .where(
+                ClassSession.is_cancel.is_(False),
+                CourseSection.is_cancel.is_(False),
+                ClassSession.room_id == room_id,
+                func.date(ClassSession.session_date) == session_date.date(),
+                ClassSession.start_time < end_time,
+                ClassSession.end_time > start_time,
+            )
+            .order_by(ClassSession.session_date.asc(), ClassSession.id.asc())
+        )
+
+        if exclude_session_id is not None:
+            query = query.where(ClassSession.id != exclude_session_id)
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
     async def list_course_options(self):
         result = await self.db.execute(
             select(Course)

@@ -138,6 +138,18 @@ class ICourseSectionRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_class_session_room_conflict(
+        self,
+        *,
+        room_id: int,
+        session_date: datetime,
+        start_time: datetime,
+        end_time: datetime,
+        exclude_session_id: int | None = None,
+    ) -> ClassSession | None:
+        pass
+
+    @abstractmethod
     async def soft_delete(self, db_obj: CourseSection) -> CourseSection:
         pass
 

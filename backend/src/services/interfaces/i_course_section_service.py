@@ -101,5 +101,6 @@ class ICourseSectionService(ABC):
         session_id: int,
         status: int,
         note: str | None,
+        room_id: int | None = None,
     ) -> ClassSession:
         pass
