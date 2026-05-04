@@ -298,19 +298,37 @@ class CourseSectionService(ICourseSectionService):
             end_date=end_date,
             schedules=schedules,
         )
+
+        existing = await self.repo.list_class_sessions(section_id)
+        
+        target_keys = {self._session_key(payload) for payload in target_sessions}
+        
+        for session in existing:
+            key = (
+                session.session_date.date(),
+                session.room_id,
+                session.start_time,
+                session.end_time,
+            )
+            if key not in target_keys:
+                await self.repo.update_class_session(session, {"is_cancel": True})
+
         if not target_sessions:
             return
 
-        existing = await self.repo.list_class_sessions(section_id)
-        existing_keys = {
-            (
+        existing_keys = set()
+        for item in existing:
+            key = (
                 item.session_date.date(),
                 item.room_id,
                 item.start_time,
                 item.end_time,
             )
-            for item in existing
-        }
+            if not item.is_cancel:
+                existing_keys.add(key)
+            elif key in target_keys:
+                await self.repo.update_class_session(item, {"is_cancel": False})
+                existing_keys.add(key)
 
         to_create = [
             payload
@@ -318,7 +336,8 @@ class CourseSectionService(ICourseSectionService):
             if self._session_key(payload) not in existing_keys
         ]
 
-        await self.repo.create_class_sessions(to_create)
+        if to_create:
+            await self.repo.create_class_sessions(to_create)
 
     @staticmethod
     def _weekday_label(day_of_week: int) -> str:

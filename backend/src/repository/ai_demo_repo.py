@@ -11,6 +11,7 @@ from src.db.models.course import Course
 from src.db.models.enrollment import Enrollment
 from src.db.models.classroom import Classroom
 from src.db.models.user import User
+from src.db.models.enums import AttendanceStatus
 from src.db.models.student import Student
 from src.db.models.student_face import StudentFace
 
@@ -158,6 +159,16 @@ class AIDemoRepository:
         await self.db.flush()
         await self.db.refresh(attendance)
         return attendance
+
+    async def get_attended_student_ids_by_session(self, class_session_id: int) -> set[int]:
+        result = await self.db.execute(
+            select(Attendance.student_id).where(
+                Attendance.class_session_id == class_session_id,
+                Attendance.is_cancel.is_(False),
+                Attendance.status.in_([AttendanceStatus.PRESENT, AttendanceStatus.LATE])
+            )
+        )
+        return {int(student_id) for student_id in result.scalars().all()}
 
     async def get_active_student_by_id(self, student_id: int) -> Student | None:
         result = await self.db.execute(

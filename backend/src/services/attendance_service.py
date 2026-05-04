@@ -320,6 +320,37 @@ class AIDemoService:
         if session.status == SessionStatus.CANCELLED:
             raise ValidationException("Buổi học đã được đánh dấu nghỉ, không thể mở điểm danh", field="class_session_id")
 
+        if session.session_date and session.start_time:
+            now = datetime.now()
+            
+            if isinstance(session.start_time, datetime):
+                session_start_datetime = session.start_time
+            else:
+                session_start_datetime = datetime.combine(session.session_date.date(), session.start_time)
+                
+            if session.end_time:
+                if isinstance(session.end_time, datetime):
+                    session_end_datetime = session.end_time
+                else:
+                    session_end_datetime = datetime.combine(session.session_date.date(), session.end_time)
+                    if session_end_datetime < session_start_datetime:
+                        from datetime import timedelta
+                        session_end_datetime += timedelta(days=1)
+                
+                if now > session_end_datetime:
+                    raise ValidationException("Ca học đã kết thúc, không thể mở điểm danh.", field="time")
+            
+            time_diff = (session_start_datetime - now).total_seconds()
+            
+            # Check if attempting to start more than 15 minutes before class
+            if time_diff > 15 * 60:
+                # raise ValidationException("Chưa đến giờ học. Chỉ có thể mở điểm danh tối đa trước 15 phút.", field="time")
+                raise ValidationException("Không đúng buổi học..", field="time")
+            
+            # Nếu đã qua các check trên (tức là không mở trước quá 15p và chưa kết thúc)
+            # thì ta không cần check session_date == now.date() một cách cứng nhắc 
+            # vì có thể ca học kết thúc qua ngày hôm sau 
+
         role_name = self._extract_role_name(current_user)
         if role_name == "giang_vien" and int(course_section.user_id) != int(current_user.id):
             raise ForbiddenException("Giảng viên chỉ được mở điểm danh cho buổi học thuộc lớp mình quản lý")
@@ -376,9 +407,12 @@ class AIDemoService:
             self.runtime.start_time = session.start_time
             self.runtime.end_time = session.end_time
             self.runtime.late_time = session.late_time
+            
+            attended_students = await self.repo.get_attended_student_ids_by_session(int(session.id))
+
             self.runtime.cache_data = cache_data
-            self.runtime.attended_student_ids.clear()
             self.runtime.enrolled_student_ids = set(enrolled_student_ids)
+            self.runtime.attended_student_ids = attended_students
             self.runtime.owner_user_id = int(current_user.id)
 
             log_ai_demo_event(
