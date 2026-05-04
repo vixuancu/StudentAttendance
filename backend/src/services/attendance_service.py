@@ -466,6 +466,26 @@ class AIDemoService:
 
     async def stop_live(self, runtime_id: Optional[str], current_user: User) -> dict:
         self._ensure_live_runtime_owner(current_user)
+
+        absent_ids = []
+        class_session_id = None
+
+        with self.runtime.lock:
+            if self.runtime.active and self.runtime.class_session_id is not None:
+                if not runtime_id or runtime_id == self.runtime.runtime_id:
+                    class_session_id = self.runtime.class_session_id
+                    enrolled = self.runtime.enrolled_student_ids
+                    attended = self.runtime.attended_student_ids
+                    absent_ids = list(set(enrolled) - attended)
+
+        if class_session_id is not None:
+            for sid in absent_ids:
+                await self._upsert_attendance(
+                    student_id=sid,
+                    class_session_id=class_session_id,
+                    status=AttendanceStatus.ABSENT,
+                )
+
         return await self.stop(runtime_id=runtime_id)
 
     async def status(self, runtime_id: Optional[str]) -> dict:
