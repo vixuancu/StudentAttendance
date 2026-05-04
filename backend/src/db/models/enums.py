@@ -41,12 +41,12 @@ class SessionStatus:
 
 
 class AttendanceStatus:
-    """Trạng thái điểm danh: 0=Vắng, 1=Có mặt, 2=Trễ, 3=Có phép"""
+    """Trạng thái điểm danh: 1=Có mặt, 2=Vắng, 3=Trễ, 4=Có phép"""
 
-    ABSENT = 0
     PRESENT = 1
-    LATE = 2
-    EXCUSED = 3
+    ABSENT = 2
+    LATE = 3
+    EXCUSED = 4
 
 
 class CancelStatus:

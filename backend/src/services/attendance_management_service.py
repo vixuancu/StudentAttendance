@@ -45,6 +45,10 @@ class AttendanceManagementService(IAttendanceManagementService):
     ) -> AttendanceMatrixResponse:
         await self._check_permission(course_section_id, current_user)
 
+        enrolled_students = await self.course_section_repo.list_enrolled_students(
+            course_section_id, skip=0, limit=10000, search=None
+        )
+
         attendances = await self.attendance_repo.get_attendances_by_course_section_and_date_range(
             course_section_id, from_date, to_date
         )
@@ -54,6 +58,13 @@ class AttendanceManagementService(IAttendanceManagementService):
         )
 
         student_map = {}
+        for student in enrolled_students:
+            student_map[student.id] = {
+                "student_id": student.id,
+                "student_code": student.student_code,
+                "full_name": student.full_name,
+                "records_map": {}
+            }
         
         for attendance in attendances:
             student = attendance.student

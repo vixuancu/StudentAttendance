@@ -144,12 +144,17 @@ class AIDemoService:
         }
 
     @staticmethod
-    def _resolve_attendance_status(late_time: Optional[object]) -> int:
-        if not isinstance(late_time, datetime):
-            return AttendanceStatus.PRESENT
+    def _resolve_attendance_status(late_time: Optional[object], start_time: Optional[object] = None) -> int:
+        target_time = late_time
+        if not isinstance(target_time, datetime):
+            if isinstance(start_time, datetime):
+                from datetime import timedelta
+                target_time = start_time + timedelta(minutes=15)
+            else:
+                return AttendanceStatus.PRESENT
 
-        now = datetime.now(tz=late_time.tzinfo) if late_time.tzinfo else datetime.now()
-        if now > late_time:
+        now = datetime.now(tz=target_time.tzinfo) if target_time.tzinfo else datetime.now()
+        if now > target_time:
             return AttendanceStatus.LATE
         return AttendanceStatus.PRESENT
 
@@ -466,6 +471,26 @@ class AIDemoService:
 
     async def stop_live(self, runtime_id: Optional[str], current_user: User) -> dict:
         self._ensure_live_runtime_owner(current_user)
+
+        absent_ids = []
+        class_session_id = None
+
+        with self.runtime.lock:
+            if self.runtime.active and self.runtime.class_session_id is not None:
+                if not runtime_id or runtime_id == self.runtime.runtime_id:
+                    class_session_id = self.runtime.class_session_id
+                    enrolled = self.runtime.enrolled_student_ids
+                    attended = self.runtime.attended_student_ids
+                    absent_ids = list(set(enrolled) - attended)
+
+        if class_session_id is not None:
+            for sid in absent_ids:
+                await self._upsert_attendance(
+                    student_id=sid,
+                    class_session_id=class_session_id,
+                    status=AttendanceStatus.ABSENT,
+                )
+
         return await self.stop(runtime_id=runtime_id)
 
     async def status(self, runtime_id: Optional[str]) -> dict:
@@ -501,6 +526,7 @@ class AIDemoService:
             cache_data = self.runtime.cache_data
             class_session_id = self.runtime.class_session_id
             late_time = self.runtime.late_time
+            start_time = self.runtime.start_time
             enrolled_student_ids = set(self.runtime.enrolled_student_ids)
 
         if settings.ai_demo_debug_log_verbose:
@@ -613,7 +639,7 @@ class AIDemoService:
                     self.runtime.attended_student_ids.add(sid)
 
             if not already and class_session_id is not None:
-                attendance_status = self._resolve_attendance_status(late_time)
+                attendance_status = self._resolve_attendance_status(late_time, start_time)
                 await self._upsert_attendance(
                     student_id=sid,
                     class_session_id=class_session_id,
