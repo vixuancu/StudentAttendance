@@ -22,7 +22,9 @@ class AttendanceController:
             message="Lấy cấu hình demo AI thành công",
         )
 
-    async def start_demo(self, mode: str, rtsp_url: str | None) -> DataResponse[AIDemoStartResponse]:
+    async def start_demo(
+        self, mode: str, rtsp_url: str | None
+    ) -> DataResponse[AIDemoStartResponse]:
         data = await self.service.start(mode=mode, rtsp_url=rtsp_url)
         return DataResponse(
             data=AIDemoStartResponse.model_validate(data),
@@ -47,21 +49,31 @@ class AttendanceController:
             message="Khởi động điểm danh live thành công",
         )
 
-    async def stop_live(self, runtime_id: str | None, current_user: User) -> DataResponse[AIDemoStopResponse]:
-        data = await self.service.stop_live(runtime_id=runtime_id, current_user=current_user)
+    async def stop_live(
+        self, runtime_id: str | None, current_user: User
+    ) -> DataResponse[AIDemoStopResponse]:
+        data = await self.service.stop_live(
+            runtime_id=runtime_id, current_user=current_user
+        )
         return DataResponse(
             data=AIDemoStopResponse.model_validate(data),
             message="Dừng điểm danh live thành công",
         )
 
-    async def get_live_status(self, runtime_id: str | None, current_user: User) -> DataResponse[AIDemoStatusResponse]:
-        data = await self.service.status_live(runtime_id=runtime_id, current_user=current_user)
+    async def get_live_status(
+        self, runtime_id: str | None, current_user: User
+    ) -> DataResponse[AIDemoStatusResponse]:
+        data = await self.service.status_live(
+            runtime_id=runtime_id, current_user=current_user
+        )
         return DataResponse(
             data=AIDemoStatusResponse.model_validate(data),
             message="Lấy trạng thái điểm danh live thành công",
         )
 
-    async def recognize_fast_live(self, runtime_id: str, faces, face_positions: str, current_user: User) -> DataResponse[AIDemoRecognizeResponse]:
+    async def recognize_fast_live(
+        self, runtime_id: str, faces, face_positions: str, current_user: User
+    ) -> DataResponse[AIDemoRecognizeResponse]:
         data = await self.service.recognize_fast_live(
             runtime_id=runtime_id,
             face_files=faces,
@@ -73,21 +85,27 @@ class AttendanceController:
             message="Nhận diện nhanh live thành công",
         )
 
-    async def stop_demo(self, runtime_id: str | None) -> DataResponse[AIDemoStopResponse]:
+    async def stop_demo(
+        self, runtime_id: str | None
+    ) -> DataResponse[AIDemoStopResponse]:
         data = await self.service.stop(runtime_id=runtime_id)
         return DataResponse(
             data=AIDemoStopResponse.model_validate(data),
             message="Dừng demo AI thành công",
         )
 
-    async def get_demo_status(self, runtime_id: str | None) -> DataResponse[AIDemoStatusResponse]:
+    async def get_demo_status(
+        self, runtime_id: str | None
+    ) -> DataResponse[AIDemoStatusResponse]:
         data = await self.service.status(runtime_id=runtime_id)
         return DataResponse(
             data=AIDemoStatusResponse.model_validate(data),
             message="Lấy trạng thái demo AI thành công",
         )
 
-    async def recognize_fast(self, runtime_id: str, faces, face_positions: str) -> DataResponse[AIDemoRecognizeResponse]:
+    async def recognize_fast(
+        self, runtime_id: str, faces, face_positions: str
+    ) -> DataResponse[AIDemoRecognizeResponse]:
         data = await self.service.recognize_fast(
             runtime_id=runtime_id,
             face_files=faces,
@@ -107,9 +125,24 @@ class AttendanceController:
     async def is_runtime_active(self, runtime_id: str) -> bool:
         return self.service.is_runtime_active(runtime_id)
 
-    async def upload_student_faces(self, student_id: int, files) -> DataResponse[AIDemoFaceUploadResponse]:
-        data = await self.service.upload_student_faces(student_id=student_id, files=files)
+    async def upload_student_faces(
+        self, student_id: int, files
+    ) -> DataResponse[AIDemoFaceUploadResponse]:
+        data = await self.service.upload_student_faces(
+            student_id=student_id, files=files
+        )
         return DataResponse(
             data=AIDemoFaceUploadResponse.model_validate(data),
             message="Upload khuôn mặt thành công",
+        )
+
+    async def upload_student_faces_from_video(
+        self, student_id: int, video
+    ) -> DataResponse[AIDemoFaceUploadResponse]:
+        data = await self.service.upload_student_faces_from_video(
+            student_id=student_id, video=video
+        )
+        return DataResponse(
+            data=AIDemoFaceUploadResponse.model_validate(data),
+            message="Upload video khuôn mặt thành công",
         )
