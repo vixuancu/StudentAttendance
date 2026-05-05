@@ -78,9 +78,9 @@ class AntiSpoofPredictor:
             # Chuẩn hóa tensor float
             img_tensor = np.zeros((1, 3, 80, 80), dtype=np.float32)
             
-            # Repos sử dụng BGR. Cần normalize 0-1 (vì model gốc dùng transforms.ToTensor())
+            # Repos sử dụng BGR. Tác giả đã bỏ chia 255 ở custom ToTensor() nên ta giữ nguyên pixel 0-255
             for i in range(3):
-                img_tensor[0, i, :, :] = img[:, :, i] / 255.0
+                img_tensor[0, i, :, :] = img[:, :, i]
 
             # ONNX Inference
             output = self.session.run(None, {self.input_name: img_tensor})[0]
@@ -98,7 +98,7 @@ class AntiSpoofPredictor:
             # Nâng Threshold lên cao (0.85) để hệ thống nhận diện gắt gao hơn đối với màn hình điện thoại
             # Vì ta đã cấu hình Frontend lúc nãy (ở react-component) padding mở rộng box x2.2 lần
             # Hình ảnh lúc này đã bao quát cả quang cảnh viền điện thoại -> Mô hình sẽ thấy rất rõ
-            threshold = 0.8
+            threshold = 0.85
 
             return (real_score >= threshold), float(real_score)
 
