@@ -252,11 +252,6 @@ class CourseSectionService(ICourseSectionService):
                         start_period=int(schedule["start_period"]),
                         number_of_periods=int(schedule["number_of_periods"]),
                     )
-                    status = (
-                        SessionStatus.CLOSED
-                        if end_time <= now
-                        else SessionStatus.PENDING
-                    )
                     generated.append(
                         {
                             "course_section_id": section_id,
@@ -265,7 +260,7 @@ class CourseSectionService(ICourseSectionService):
                             "start_time": start_time,
                             "end_time": end_time,
                             "late_time": None,
-                            "status": status,
+                            "status": SessionStatus.PENDING,
                             "note": None,
                             "is_cancel": False,
                         }
