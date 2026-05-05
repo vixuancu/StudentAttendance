@@ -22,6 +22,7 @@ from src.services.recognition_service import (
     extract_embeddings_from_crops,
     match_from_cache,
 )
+from src.services.antispoof_service import check_liveness
 from src.utils.ai_demo_logger import get_ai_demo_log_path, log_ai_demo_event
 from src.utils.exceptions import ForbiddenException, ValidationException
 
@@ -576,6 +577,9 @@ class AIDemoService:
 
         embeddings_with_quality = await asyncio.to_thread(extract_embeddings_from_crops, crops)
 
+        # Liveness check map
+        liveness_results = await asyncio.to_thread(lambda c_list: [check_liveness(c) for c in c_list], crops)
+
         results = []
         new_attended = []
         debug_faces = []
@@ -586,6 +590,20 @@ class AIDemoService:
                 "xCenter": float(pos.get("xCenter", 0.0)),
                 "yCenter": float(pos.get("yCenter", 0.0)),
             }
+
+            is_real, liveness_score = liveness_results[i]
+            
+            if not is_real:
+                # Spoof detected
+                results.append({
+                    "recognized": False, 
+                    "is_spoof": True,
+                    "liveness_score": liveness_score,
+                    "face_box": face_box, 
+                    "debug": {"reason": "spoof_detected"}
+                })
+                debug_faces.append({"idx": i, "reason": "spoof_detected", "liveness": liveness_score})
+                continue
 
             if emb is None:
                 results.append({"recognized": False, "face_box": face_box, "debug": {"reason": "no_embedding"}})
@@ -659,6 +677,8 @@ class AIDemoService:
             results.append(
                 {
                     "recognized": True,
+                    "is_spoof": False,
+                    "liveness_score": liveness_score,
                     "student_id": sid,
                     "student_code": match["student_code"],
                     "full_name": match["full_name"],
