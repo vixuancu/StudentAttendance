@@ -2,15 +2,7 @@ import os
 import threading
 import cv2
 import numpy as np
-import torch
-import torch.nn.functional as F
 from pathlib import Path
-
-# Try to load torchvision transforms
-try:
-    import torchvision.transforms as transforms
-except ImportError:
-    transforms = None
 
 import onnxruntime as ort
 
