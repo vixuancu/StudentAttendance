@@ -368,7 +368,7 @@ class AIDemoService:
                 field="enrollment",
             )
 
-        rows = await self.repo.fetch_student_faces_by_course_section(int(course_section.id))
+        rows = await self.repo.fetch_active_student_faces()
         enrolled_student_ids = await self.repo.fetch_enrolled_student_ids_by_course_section(int(course_section.id))
         cache_data = build_cache_from_rows(rows)
         if cache_data["n_embeddings"] == 0:
@@ -634,6 +634,12 @@ class AIDemoService:
                 results.append(
                     {
                         "recognized": False,
+                        "is_spoof": False,
+                        "liveness_score": liveness_score,
+                        "student_id": sid,
+                        "student_code": match["student_code"],
+                        "full_name": match["full_name"],
+                        "confidence": round(float(score) * 100, 1),
                         "face_box": face_box,
                         "debug": not_enrolled_debug,
                     }

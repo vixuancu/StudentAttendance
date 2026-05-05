@@ -98,7 +98,7 @@ class AntiSpoofPredictor:
             # Nâng Threshold lên cao (0.85) để hệ thống nhận diện gắt gao hơn đối với màn hình điện thoại
             # Vì ta đã cấu hình Frontend lúc nãy (ở react-component) padding mở rộng box x2.2 lần
             # Hình ảnh lúc này đã bao quát cả quang cảnh viền điện thoại -> Mô hình sẽ thấy rất rõ
-            threshold = 0.85
+            threshold = 0.92
 
             return (real_score >= threshold), float(real_score)
 
