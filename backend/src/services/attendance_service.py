@@ -18,13 +18,17 @@ from src.repository.ai_demo_repo import AIDemoRepository
 from src.services.recognition_service import (
     AIDemoRTSPWorker,
     build_cache_from_rows,
+    extract_embeddings_from_frame,
     extract_embedding_from_path,
     extract_embeddings_from_crops,
     match_from_cache,
 )
 from src.utils.ai_demo_logger import get_ai_demo_log_path, log_ai_demo_event
-from src.utils.exceptions import ForbiddenException, ValidationException
-
+from src.utils.exceptions import (
+    BusinessException,
+    ForbiddenException,
+    ValidationException,
+)
 
 _backend_dir = Path(__file__).resolve().parents[2]
 (_backend_dir / "uploads").mkdir(parents=True, exist_ok=True)
@@ -144,21 +148,30 @@ class AIDemoService:
         }
 
     @staticmethod
-    def _resolve_attendance_status(late_time: Optional[object], start_time: Optional[object] = None) -> int:
+    def _resolve_attendance_status(
+        late_time: Optional[object], start_time: Optional[object] = None
+    ) -> int:
         target_time = late_time
         if not isinstance(target_time, datetime):
             if isinstance(start_time, datetime):
                 from datetime import timedelta
+
                 target_time = start_time + timedelta(minutes=15)
             else:
                 return AttendanceStatus.PRESENT
 
-        now = datetime.now(tz=target_time.tzinfo) if target_time.tzinfo else datetime.now()
+        now = (
+            datetime.now(tz=target_time.tzinfo)
+            if target_time.tzinfo
+            else datetime.now()
+        )
         if now > target_time:
             return AttendanceStatus.LATE
         return AttendanceStatus.PRESENT
 
-    async def _upsert_attendance(self, student_id: int, class_session_id: int, status: int) -> None:
+    async def _upsert_attendance(
+        self, student_id: int, class_session_id: int, status: int
+    ) -> None:
         if self.repo is None:
             return
 
@@ -176,7 +189,10 @@ class AIDemoService:
             )
             return
 
-        if existing.status == AttendanceStatus.PRESENT and status == AttendanceStatus.LATE:
+        if (
+            existing.status == AttendanceStatus.PRESENT
+            and status == AttendanceStatus.LATE
+        ):
             return
 
         await self.repo.update_attendance(attendance=existing, status=status, note=None)
@@ -243,9 +259,13 @@ class AIDemoService:
         cleaned_rtsp = (rtsp_url or "").strip().replace(" ", "")
         if selected_mode == "ip_camera":
             if not cleaned_rtsp:
-                raise ValidationException("RTSP URL không được để trống", field="rtsp_url")
+                raise ValidationException(
+                    "RTSP URL không được để trống", field="rtsp_url"
+                )
             if not cleaned_rtsp.lower().startswith(("rtsp://", "rtsps://")):
-                raise ValidationException("RTSP URL phải bắt đầu bằng rtsp:// hoặc rtsps://", field="rtsp_url")
+                raise ValidationException(
+                    "RTSP URL phải bắt đầu bằng rtsp:// hoặc rtsps://", field="rtsp_url"
+                )
 
         with self.runtime.lock:
             if self.runtime.worker:
@@ -306,15 +326,21 @@ class AIDemoService:
 
         selected_mode = (mode or "webcam").strip().lower()
         if selected_mode != "webcam":
-            raise ValidationException("live attendance hiện chỉ hỗ trợ mode webcam", field="mode")
+            raise ValidationException(
+                "live attendance hiện chỉ hỗ trợ mode webcam", field="mode"
+            )
 
         session = await self.repo.get_class_session_detail(class_session_id)
         if session is None:
-            raise ValidationException("Buổi học không tồn tại hoặc đã bị hủy", field="class_session_id")
+            raise ValidationException(
+                "Buổi học không tồn tại hoặc đã bị hủy", field="class_session_id"
+            )
 
         course_section = session.course_section
         if course_section is None or course_section.is_cancel:
-            raise ValidationException("Lớp tín chỉ của buổi học không hợp lệ", field="class_session_id")
+            raise ValidationException(
+                "Lớp tín chỉ của buổi học không hợp lệ", field="class_session_id"
+            )
 
         if int(course_section.id) != int(course_section_id):
             raise ValidationException(
@@ -323,52 +349,74 @@ class AIDemoService:
             )
 
         if session.status == SessionStatus.CANCELLED:
-            raise ValidationException("Buổi học đã được đánh dấu nghỉ, không thể mở điểm danh", field="class_session_id")
+            raise ValidationException(
+                "Buổi học đã được đánh dấu nghỉ, không thể mở điểm danh",
+                field="class_session_id",
+            )
 
         if session.session_date and session.start_time:
             now = datetime.now()
-            
+
             if isinstance(session.start_time, datetime):
                 session_start_datetime = session.start_time
             else:
-                session_start_datetime = datetime.combine(session.session_date.date(), session.start_time)
-                
+                session_start_datetime = datetime.combine(
+                    session.session_date.date(), session.start_time
+                )
+
             if session.end_time:
                 if isinstance(session.end_time, datetime):
                     session_end_datetime = session.end_time
                 else:
-                    session_end_datetime = datetime.combine(session.session_date.date(), session.end_time)
+                    session_end_datetime = datetime.combine(
+                        session.session_date.date(), session.end_time
+                    )
                     if session_end_datetime < session_start_datetime:
                         from datetime import timedelta
+
                         session_end_datetime += timedelta(days=1)
-                
+
                 if now > session_end_datetime:
-                    raise ValidationException("Ca học đã kết thúc, không thể mở điểm danh.", field="time")
-            
+                    raise ValidationException(
+                        "Ca học đã kết thúc, không thể mở điểm danh.", field="time"
+                    )
+
             time_diff = (session_start_datetime - now).total_seconds()
-            
+
             # Check if attempting to start more than 15 minutes before class
             if time_diff > 15 * 60:
                 # raise ValidationException("Chưa đến giờ học. Chỉ có thể mở điểm danh tối đa trước 15 phút.", field="time")
                 raise ValidationException("Không đúng buổi học..", field="time")
-            
+
             # Nếu đã qua các check trên (tức là không mở trước quá 15p và chưa kết thúc)
-            # thì ta không cần check session_date == now.date() một cách cứng nhắc 
-            # vì có thể ca học kết thúc qua ngày hôm sau 
+            # thì ta không cần check session_date == now.date() một cách cứng nhắc
+            # vì có thể ca học kết thúc qua ngày hôm sau
 
         role_name = self._extract_role_name(current_user)
-        if role_name == "giang_vien" and int(course_section.user_id) != int(current_user.id):
-            raise ForbiddenException("Giảng viên chỉ được mở điểm danh cho buổi học thuộc lớp mình quản lý")
+        if role_name == "giang_vien" and int(course_section.user_id) != int(
+            current_user.id
+        ):
+            raise ForbiddenException(
+                "Giảng viên chỉ được mở điểm danh cho buổi học thuộc lớp mình quản lý"
+            )
 
-        enrolled_students = await self.repo.count_active_enrollments_by_course_section(int(course_section.id))
+        enrolled_students = await self.repo.count_active_enrollments_by_course_section(
+            int(course_section.id)
+        )
         if enrolled_students <= 0:
             raise ValidationException(
                 "Lớp tín chỉ này chưa có sinh viên đăng ký nên không thể mở điểm danh",
                 field="enrollment",
             )
 
-        rows = await self.repo.fetch_student_faces_by_course_section(int(course_section.id))
-        enrolled_student_ids = await self.repo.fetch_enrolled_student_ids_by_course_section(int(course_section.id))
+        rows = await self.repo.fetch_student_faces_by_course_section(
+            int(course_section.id)
+        )
+        enrolled_student_ids = (
+            await self.repo.fetch_enrolled_student_ids_by_course_section(
+                int(course_section.id)
+            )
+        )
         cache_data = build_cache_from_rows(rows)
         if cache_data["n_embeddings"] == 0:
             raise ValidationException(
@@ -388,7 +436,9 @@ class AIDemoService:
                 and self.runtime.owner_user_id is not None
                 and int(self.runtime.owner_user_id) != int(current_user.id)
             ):
-                raise ForbiddenException("Đang có phiên điểm danh live do người dùng khác vận hành")
+                raise ForbiddenException(
+                    "Đang có phiên điểm danh live do người dùng khác vận hành"
+                )
 
             if self.runtime.worker:
                 self.runtime.worker.stop()
@@ -402,9 +452,13 @@ class AIDemoService:
             self.runtime.class_session_id = int(session.id)
             self.runtime.course_section_id = int(course_section.id)
             self.runtime.course_section_name = course_section.name or ""
-            self.runtime.course_name = course_section.course.course_name if course_section.course else ""
+            self.runtime.course_name = (
+                course_section.course.course_name if course_section.course else ""
+            )
             self.runtime.lecturer_id = int(course_section.user_id)
-            self.runtime.lecturer_name = course_section.user.full_name if course_section.user else ""
+            self.runtime.lecturer_name = (
+                course_section.user.full_name if course_section.user else ""
+            )
             room = session.room if session.room else course_section.room
             self.runtime.room_id = int(room.id) if room else None
             self.runtime.room_name = room.class_name if room else ""
@@ -412,8 +466,10 @@ class AIDemoService:
             self.runtime.start_time = session.start_time
             self.runtime.end_time = session.end_time
             self.runtime.late_time = session.late_time
-            
-            attended_students = await self.repo.get_attended_student_ids_by_session(int(session.id))
+
+            attended_students = await self.repo.get_attended_student_ids_by_session(
+                int(session.id)
+            )
 
             self.runtime.cache_data = cache_data
             self.runtime.enrolled_student_ids = set(enrolled_student_ids)
@@ -437,13 +493,17 @@ class AIDemoService:
             if not self.runtime.active:
                 return
             if self.runtime.class_session_id is None:
-                raise ValidationException("Runtime hiện tại không phải phiên điểm danh live", field="runtime")
+                raise ValidationException(
+                    "Runtime hiện tại không phải phiên điểm danh live", field="runtime"
+                )
             owner_user_id = self.runtime.owner_user_id
 
         if owner_user_id is None:
             return
         if int(owner_user_id) != int(current_user.id):
-            raise ForbiddenException("Bạn không có quyền thao tác trên phiên điểm danh này")
+            raise ForbiddenException(
+                "Bạn không có quyền thao tác trên phiên điểm danh này"
+            )
 
     async def stop(self, runtime_id: Optional[str]) -> dict:
         with self.runtime.lock:
@@ -515,14 +575,18 @@ class AIDemoService:
         self._ensure_live_runtime_owner(current_user)
         return await self.status(runtime_id=runtime_id)
 
-    async def recognize_fast(self, runtime_id: str, face_files, face_positions_json: str) -> dict:
+    async def recognize_fast(
+        self, runtime_id: str, face_files, face_positions_json: str
+    ) -> dict:
         with self.runtime.lock:
             if not self.runtime.active:
                 raise ValidationException("Demo chưa start", field="runtime")
             if runtime_id != self.runtime.runtime_id:
                 raise ValidationException("runtime_id không hợp lệ", field="runtime_id")
             if self.runtime.mode not in {"webcam", "both"}:
-                raise ValidationException("Runtime hiện tại không ở chế độ webcam", field="mode")
+                raise ValidationException(
+                    "Runtime hiện tại không ở chế độ webcam", field="mode"
+                )
             cache_data = self.runtime.cache_data
             class_session_id = self.runtime.class_session_id
             late_time = self.runtime.late_time
@@ -574,37 +638,59 @@ class AIDemoService:
                 "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
             }
 
-        embeddings_with_quality = await asyncio.to_thread(extract_embeddings_from_crops, crops)
+        embeddings_with_quality = await asyncio.to_thread(
+            extract_embeddings_from_crops, crops
+        )
 
         results = []
         new_attended = []
         debug_faces = []
         emb_ok_count = 0
         for i, (emb, quality) in enumerate(embeddings_with_quality):
-            pos = positions[i] if i < len(positions) and isinstance(positions[i], dict) else {}
+            pos = (
+                positions[i]
+                if i < len(positions) and isinstance(positions[i], dict)
+                else {}
+            )
             face_box = {
                 "xCenter": float(pos.get("xCenter", 0.0)),
                 "yCenter": float(pos.get("yCenter", 0.0)),
             }
 
             if emb is None:
-                results.append({"recognized": False, "face_box": face_box, "debug": {"reason": "no_embedding"}})
-                debug_faces.append({"idx": i, "reason": "no_embedding", "quality": round(float(quality), 4)})
+                results.append(
+                    {
+                        "recognized": False,
+                        "face_box": face_box,
+                        "debug": {"reason": "no_embedding"},
+                    }
+                )
+                debug_faces.append(
+                    {
+                        "idx": i,
+                        "reason": "no_embedding",
+                        "quality": round(float(quality), 4),
+                    }
+                )
                 continue
 
             emb_ok_count += 1
 
             match, score, dbg = match_from_cache(emb, cache_data, float(quality))
             if match is None:
-                results.append({"recognized": False, "face_box": face_box, "debug": dbg})
-                debug_faces.append({
-                    "idx": i,
-                    "reason": dbg.get("reason", "unmatched"),
-                    "quality": round(float(quality), 4),
-                    "best": dbg.get("best"),
-                    "threshold": dbg.get("threshold"),
-                    "margin": dbg.get("margin"),
-                })
+                results.append(
+                    {"recognized": False, "face_box": face_box, "debug": dbg}
+                )
+                debug_faces.append(
+                    {
+                        "idx": i,
+                        "reason": dbg.get("reason", "unmatched"),
+                        "quality": round(float(quality), 4),
+                        "best": dbg.get("best"),
+                        "threshold": dbg.get("threshold"),
+                        "margin": dbg.get("margin"),
+                    }
+                )
                 continue
 
             sid = int(match["student_id"])
@@ -639,7 +725,9 @@ class AIDemoService:
                     self.runtime.attended_student_ids.add(sid)
 
             if not already and class_session_id is not None:
-                attendance_status = self._resolve_attendance_status(late_time, start_time)
+                attendance_status = self._resolve_attendance_status(
+                    late_time, start_time
+                )
                 await self._upsert_attendance(
                     student_id=sid,
                     class_session_id=class_session_id,
@@ -758,7 +846,9 @@ class AIDemoService:
             raise ValidationException("Repository chưa được khởi tạo", field="repo")
         student = await self.repo.get_active_student_by_id(student_id)
         if student is None:
-            raise ValidationException("Sinh viên không tồn tại hoặc đã bị khóa", field="student_id")
+            raise ValidationException(
+                "Sinh viên không tồn tại hoặc đã bị khóa", field="student_id"
+            )
 
         backend_dir = _backend_dir
         image_root = backend_dir / settings.ai_demo_image_dir
@@ -817,6 +907,142 @@ class AIDemoService:
 
         if uploaded_faces:
             await self.rebuild_cache()
+
+        return {
+            "uploaded": len(uploaded_faces),
+            "failed": len(errors),
+            "faces": uploaded_faces,
+            "errors": errors,
+        }
+
+    async def upload_student_faces_from_video(self, student_id: int, video) -> dict:
+        if self.repo is None:
+            raise ValidationException("Repository chưa được khởi tạo", field="repo")
+
+        student = await self.repo.get_active_student_by_id(student_id)
+        if student is None:
+            raise ValidationException(
+                "Sinh viên không tồn tại hoặc đã bị khóa", field="student_id"
+            )
+
+        backend_dir = _backend_dir
+        image_root = backend_dir / settings.ai_demo_image_dir
+        student_dir = image_root / str(student.student_code)
+        student_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = (video.filename or "").strip()
+        if not filename:
+            raise ValidationException("Thiếu video đầu vào", field="video")
+
+        ext = Path(filename).suffix.lower()
+        allowed_ext = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
+        if ext not in allowed_ext:
+            raise ValidationException("Định dạng video không hỗ trợ", field="video")
+
+        content = await video.read()
+        if not content:
+            raise ValidationException("Video rỗng", field="video")
+
+        temp_video_path = student_dir / f"{uuid.uuid4().hex}{ext}"
+        temp_video_path.write_bytes(content)
+
+        cap = cv2.VideoCapture(str(temp_video_path))
+        if not cap.isOpened():
+            temp_video_path.unlink(missing_ok=True)
+            raise ValidationException("Không thể đọc video đã upload", field="video")
+
+        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        sample_step = max(1, int(round(fps * 2))) if fps > 0 else 30
+
+        uploaded_faces = []
+        errors = []
+        frame_index = 0
+
+        try:
+            while True:
+                ok, frame = cap.read()
+                if not ok:
+                    break
+
+                if frame_index % sample_step != 0:
+                    frame_index += 1
+                    continue
+
+                frame_faces = extract_embeddings_from_frame(frame)
+                if not frame_faces:
+                    frame_index += 1
+                    continue
+
+                best_face = max(
+                    frame_faces,
+                    key=lambda item: float(item.get("det_score", 0.0)),
+                )
+                embedding = best_face.get("embedding")
+                face_box = best_face.get("face_box") or {}
+                x = max(0, int(face_box.get("x", 0)))
+                y = max(0, int(face_box.get("y", 0)))
+                w = max(0, int(face_box.get("w", 0)))
+                h = max(0, int(face_box.get("h", 0)))
+
+                if embedding is None or getattr(embedding, "shape", (0,))[0] != 512:
+                    errors.append(
+                        f"frame_{frame_index}: không trích xuất được embedding"
+                    )
+                    frame_index += 1
+                    continue
+
+                if w <= 0 or h <= 0:
+                    errors.append(f"frame_{frame_index}: không xác định được khuôn mặt")
+                    frame_index += 1
+                    continue
+
+                frame_h, frame_w = frame.shape[:2]
+                pad = int(max(w, h) * 0.15)
+                x1 = max(0, x - pad)
+                y1 = max(0, y - pad)
+                x2 = min(frame_w, x + w + pad)
+                y2 = min(frame_h, y + h + pad)
+
+                crop = frame[y1:y2, x1:x2]
+                if crop is None or crop.size == 0:
+                    errors.append(f"frame_{frame_index}: không cắt được khuôn mặt")
+                    frame_index += 1
+                    continue
+
+                crop_name = f"{uuid.uuid4().hex}_frame_{frame_index}.jpg"
+                crop_path = student_dir / crop_name
+                cv2.imwrite(str(crop_path), crop)
+
+                rel_path = crop_path.relative_to(backend_dir).as_posix()
+                face = await self.repo.add_student_face(
+                    student_id=student.id,
+                    image_url=rel_path,
+                    embedding=embedding.tolist(),
+                )
+                uploaded_faces.append({"id": int(face.id), "image_url": rel_path})
+                log_ai_demo_event(
+                    "upload_face_success_from_video",
+                    student_id=int(student_id),
+                    face_id=int(face.id),
+                    image_url=rel_path,
+                    frame_index=frame_index,
+                )
+
+                frame_index += 1
+        finally:
+            cap.release()
+            temp_video_path.unlink(missing_ok=True)
+
+        if uploaded_faces:
+            await self.rebuild_cache()
+
+        if not uploaded_faces:
+            if not errors:
+                errors.append("Không phát hiện được khuôn mặt nào trong video")
+            raise BusinessException(
+                f"Không trích xuất được embedding khuôn mặt từ video. Chi tiết: {errors[0]}",
+                error_code="FACE_EMBEDDING_EXTRACT_FAILED",
+            )
 
         return {
             "uploaded": len(uploaded_faces),
