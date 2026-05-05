@@ -61,27 +61,38 @@ async def get_students(
     page: int = Query(1, ge=1, description="Số trang"),
     page_size: int = Query(10, ge=1, le=100, description="Số bản ghi mỗi trang"),
     search: Optional[str] = Query(None, description="Tìm theo tên hoặc mã sinh viên"),
-    administrative_class_id: Optional[int] = Query(None, description="Lọc theo lớp hành chính"),
+    administrative_class_id: Optional[int] = Query(
+        None, description="Lọc theo lớp hành chính"
+    ),
     is_cancel: Optional[bool] = Query(None, description="Lọc theo trạng thái khóa"),
     _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
     from src.dto.common import PaginationParams
+
     pagination = PaginationParams(page=page, page_size=page_size)
-    return await ctrl.get_students(pagination, search, administrative_class_id, is_cancel)
+    return await ctrl.get_students(
+        pagination, search, administrative_class_id, is_cancel
+    )
 
 
 @router.get("/stats", response_model=DataResponse[StudentStatsResponse])
 async def get_student_stats(
     search: Optional[str] = Query(None, description="Tìm theo tên hoặc mã sinh viên"),
-    administrative_class_id: Optional[int] = Query(None, description="Lọc theo lớp hành chính"),
+    administrative_class_id: Optional[int] = Query(
+        None, description="Lọc theo lớp hành chính"
+    ),
     _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
 ):
-    return await ctrl.get_student_stats(search=search, administrative_class_id=administrative_class_id)
+    return await ctrl.get_student_stats(
+        search=search, administrative_class_id=administrative_class_id
+    )
 
 
-@router.get("/administrative-classes", response_model=ListResponse[AdministrativeClassResponse])
+@router.get(
+    "/administrative-classes", response_model=ListResponse[AdministrativeClassResponse]
+)
 async def get_administrative_classes(
     _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentController = Depends(get_student_controller),
@@ -172,6 +183,23 @@ async def upload_student_faces_with_embedding(
     files: list[UploadFile] = File(..., description="Danh sách ảnh khuôn mặt"),
     _current_user: User = Depends(require_roles("admin", "giao_vu")),
     ctrl: StudentFaceController = Depends(get_student_face_controller),
-    demo_ctrl = Depends(get_attendance_controller),
+    demo_ctrl=Depends(get_attendance_controller),
 ):
     return await demo_ctrl.upload_student_faces(student_id=student_id, files=files)
+
+
+@router.post(
+    "/{student_id}/faces/upload-video",
+    response_model=DataResponse[AIDemoFaceUploadResponse],
+    summary="Upload video khuôn mặt và tự động trích embedding",
+)
+async def upload_student_faces_from_video(
+    student_id: int,
+    video: UploadFile = File(..., description="Video khuôn mặt"),
+    _current_user: User = Depends(require_roles("admin", "giao_vu")),
+    ctrl: StudentFaceController = Depends(get_student_face_controller),
+    demo_ctrl=Depends(get_attendance_controller),
+):
+    return await demo_ctrl.upload_student_faces_from_video(
+        student_id=student_id, video=video
+    )
